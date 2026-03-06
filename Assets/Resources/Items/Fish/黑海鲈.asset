@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47ca162ab9d0bfb4d8f093d621249eb2, type: 3}
+  m_Name: "\u9ED1\u6D77\u9C88"
+  m_EditorClassIdentifier: 
+  itemName: "\u9ED1\u6D77\u9C88 "
+  icon: {fileID: 0}
+  description: 
+  value: 2
+  weight: 1
+  category: 0
+  depth: 0
+  size: 1
+  staminaCost: 1
+  fishType: 0
+  effects:
+  - rid: 5995037786240974859
+  - rid: 5995037786240974860
+  references:
+    version: 2
+    RefIds:
+    - rid: 5995037786240974859
+      type: {class: Effect_AddHealth, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: 1
+    - rid: 5995037786240974860
+      type: {class: Effect_ModifySanity, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: -1
