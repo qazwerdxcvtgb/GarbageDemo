@@ -24,6 +24,7 @@ namespace UISystem
         /// </summary>
         public enum DisplayMode
         {
+
             Brief,    // 简略模式（仅显示体积）
             Detailed, // 详细模式（显示所有信息）
             Empty     // 空牌模式（显示"空白"）
