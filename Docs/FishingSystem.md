@@ -1,7 +1,7 @@
 # 钓鱼系统
 
 > [← 返回索引](INDEX.md)  
-> 覆盖脚本：`FishingSystem/FishingTablePanel.cs` · `FishingSystem/CardPileSlot.cs` · `FishingSystem/RevealOverlayPanel.cs`
+> 覆盖脚本：`FishingSystem/CardPile.cs` · `FishingSystem/PileThicknessDisplay.cs` · `FishingSystem/CardPileTest.cs` · `FishingSystem/FishingTablePanel.cs` · `FishingSystem/CardPileSlot.cs` · `FishingSystem/RevealOverlayPanel.cs`
 
 ---
 
@@ -71,6 +71,126 @@ Initialize() → 状态 Empty
 玩家点击 → OnPointerClick → 触发 OnSlotClicked
 FishingTablePanel 接收 → ItemPool 抽牌 → 生成 FishCard
 状态：Empty → FaceDown → FaceUp
+```
+
+---
+
+---
+
+## CardPile（独立牌堆预制体）
+
+**路径**：`Assets/Script/FishingSystem/CardPile.cs`  
+**命名空间**：`FishingSystem`  
+**接口**：`IPointerClickHandler`
+
+### 职责
+
+自持卡序的独立牌堆单元，管理三种显示状态，交互通过事件上报，不含游戏逻辑。
+
+### 预制体层级结构
+
+```
+CardPile（CardPile.cs + Image 透明遮罩，RaycastTarget=true）
+├── ThicknessContainer（PileThicknessDisplay.cs）
+│   ├── EdgeLayer_1（Image，最近底部）
+│   ├── EdgeLayer_2
+│   └── EdgeLayer_N
+├── CardBackContainer（FaceDown 时激活）
+│   ├── SmallCardBack（Image）
+│   ├── MediumCardBack（Image）
+│   └── LargeCardBack（Image）
+└── CardFaceContainer（FaceUp 时激活，FishCard 实例化到此）
+```
+
+### Inspector 参数
+
+| 参数 | 说明 |
+|------|------|
+| `fishCardPrefab` | FishCard 预制体（FaceUp 时实例化） |
+| `cardBackContainer` | 卡背总容器 GameObject |
+| `smallCardBack` | Small 尺寸卡背 |
+| `mediumCardBack` | Medium 尺寸卡背 |
+| `largeCardBack` | Large 尺寸卡背 |
+| `cardFaceContainer` | 卡面生成的父 Transform |
+| `thicknessDisplay` | PileThicknessDisplay 组件引用 |
+
+### 状态枚举（复用 PileState）
+
+```csharp
+enum PileState { Empty, FaceDown, FaceUp }
+```
+
+### API
+
+```csharp
+pile.SetCards(List<FishData> list)   // 注入卡序，自动进入 FaceDown
+pile.Reveal()                        // FaceDown → FaceUp
+pile.RemoveTopCard()                 // 移除顶牌并刷新，返回 FishData
+pile.GetTopCard()                    // 只读取顶牌
+pile.CardCount                       // 当前张数
+pile.State                           // 当前 PileState
+// event Action<CardPile> OnPileClicked  // 点击时触发
+```
+
+### 状态流转
+
+```
+SetCards(list) → FaceDown（显示对应尺寸卡背）
+Reveal()       → FaceUp（显示 FishCardVisual 卡面）
+RemoveTopCard()→ FaceDown（显示新顶牌卡背）或 Empty（牌堆耗尽）
+```
+
+---
+
+## PileThicknessDisplay（牌堆厚度视觉）
+
+**路径**：`Assets/Script/FishingSystem/PileThicknessDisplay.cs`  
+**命名空间**：`FishingSystem`
+
+边缘层在 `Awake` 时**自动生成**，预制体的 `ThicknessContainer` 下无需手动创建子节点。
+
+### Inspector 参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `maxLayers` | 8 | 最多生成的边缘层数（厚度上限） |
+| `layerSprite` | 空 | 边缘层 Sprite，留空则纯色 |
+| `layerColor` | 浅灰 | 边缘层颜色 |
+| `layerSize` | (220, 6) | 每层宽高，宽度建议与卡牌一致 |
+| `layerOffset` | (1, -4) | 每层相对上一层的偏移，向右下堆叠产生立体感 |
+| `cardsPerLayer` | 2 | 每 N 张卡显示一层，调整厚度增长速率 |
+
+### API
+
+```csharp
+display.UpdateThickness(int cardCount)  // 由 CardPile 自动调用
+```
+
+---
+
+## CardPileTest（牌堆测试初始化）
+
+**路径**：`Assets/Script/FishingSystem/CardPileTest.cs`  
+**命名空间**：`FishingSystem`
+
+测试脚本，从 `ItemPool` 取指定深度和子池的卡序注入 `CardPile`。
+
+### Inspector 参数
+
+| 参数 | 说明 |
+|------|------|
+| `targetPile` | 目标 CardPile |
+| `depth` | FishDepth（Depth1/2/3） |
+| `poolIndex` | 子池索引（0-2） |
+| `cardCountLimit` | 取卡上限，0 表示不限 |
+| `autoInitOnStart` | 是否 Start 时自动初始化 |
+
+### 调试方法
+
+```csharp
+test.InitializePile()   // 重新初始化
+test.DebugReveal()      // 翻开顶牌（等同 pile.Reveal()）
+test.DebugRemoveTop()   // 移除顶牌（等同 pile.RemoveTopCard()）
 ```
 
 ---

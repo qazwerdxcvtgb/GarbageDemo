@@ -249,8 +249,8 @@ namespace FishCardSystem
                 tiltY = offset.x * manualTiltAmount;
             }
 
-            // Z轴倾斜（拖拽时归零，松手后还原弧线旋转）
-            float tiltZ = parentCard.isDragging ? 0f : 
+            // Z轴倾斜（拖拽时归零，松手后还原弧线旋转；curve为null时归零）
+            float tiltZ = (parentCard.isDragging || curve == null) ? 0f : 
                          (curveRotationOffset * curve.rotationInfluence * parentCard.SiblingAmount());
 
             // 应用倾斜
