@@ -121,17 +121,10 @@ namespace FishingSystem
             // 设置为牌堆模式（禁用拖拽等手牌功能）
             currentCard.SetPileMode(true);
 
-            // 根据当前状态显示正面或背面
-            if (currentState == PileState.FaceUp)
+            // 根据当前状态更新显示状态
+            if (currentState != PileState.FaceUp)
             {
-                // 已翻开：显示正面
-                currentCard.FlipToFront(0f);
-            }
-            else
-            {
-                // 未翻开：显示背面
                 currentState = PileState.FaceDown;
-                currentCard.FlipToBack(0f);
             }
 
             if (showDebugInfo)

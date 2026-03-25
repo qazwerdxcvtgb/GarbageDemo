@@ -227,9 +227,6 @@ namespace FishingSystem
             // 设置为牌堆模式（禁用交互）
             displayCard.SetPileMode(true);
 
-            // 翻转到正面
-            displayCard.FlipToFront(0f);
-
             // 设置缩放
             cardObj.transform.localScale = Vector3.one * displayCardScale;
 

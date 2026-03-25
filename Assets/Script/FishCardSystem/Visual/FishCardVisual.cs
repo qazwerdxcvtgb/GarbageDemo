@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
-using System.Collections;
 using ItemSystem;
 
 namespace FishCardSystem
@@ -37,8 +36,6 @@ namespace FishCardSystem
 
         [Header("显示模块")]
         [SerializeField] private FishCardFrontDisplay frontDisplay;
-        [SerializeField] private FishCardBackDisplay backDisplay;
-        [SerializeField] private CardFaceController faceController;
 
         [Header("跟随参数")]
         [SerializeField] private float followSpeed = 30f;
@@ -72,10 +69,6 @@ namespace FishCardSystem
         [SerializeField] private float swapRotationAngle = 30f;
         [SerializeField] private float swapTransition = 0.15f;
         [SerializeField] private int swapVibrato = 5;
-
-        [Header("翻转参数")]
-        [SerializeField] private AnimationCurve flipCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
-        private bool isFlipping = false;
 
         [Header("弧线参数")]
         [SerializeField] private CurveParameters curve;
@@ -146,10 +139,6 @@ namespace FishCardSystem
                 frontDisplay.UpdateDisplay(data);
             }
 
-            if (backDisplay != null)
-            {
-                backDisplay.UpdateDisplay(data.size);
-            }
         }
 
         /// <summary>
@@ -182,16 +171,10 @@ namespace FishCardSystem
             float normalizedPos = parentCard.NormalizedPosition();
             int siblingAmount = parentCard.SiblingAmount();
 
-            // 计算位置偏移（少于5张牌时不弧线排布）
-            if (siblingAmount >= 5)
-            {
-                curveYOffset = curve.positioning.Evaluate(normalizedPos) * 
-                              curve.positioningInfluence * siblingAmount;
-            }
-            else
-            {
-                curveYOffset = 0;
-            }
+            // 计算位置偏移（单张牌时无需弧线）
+            curveYOffset = siblingAmount >= 1
+                ? curve.positioning.Evaluate(normalizedPos) * curve.positioningInfluence * siblingAmount
+                : 0f;
 
             // 计算旋转偏移
             curveRotationOffset = curve.rotation.Evaluate(normalizedPos);
@@ -266,8 +249,8 @@ namespace FishCardSystem
                 tiltY = offset.x * manualTiltAmount;
             }
 
-            // Z轴倾斜（弧线旋转或拖拽保持）
-            float tiltZ = parentCard.isDragging ? tiltParent.eulerAngles.z : 
+            // Z轴倾斜（拖拽时归零，松手后还原弧线旋转）
+            float tiltZ = parentCard.isDragging ? 0f : 
                          (curveRotationOffset * curve.rotationInfluence * parentCard.SiblingAmount());
 
             // 应用倾斜
@@ -322,80 +305,6 @@ namespace FishCardSystem
         #endregion
 
         #region Animation Methods
-
-        /// <summary>
-        /// 翻转到正面
-        /// </summary>
-        public void FlipToFront(float duration)
-        {
-            if (!isFlipping)
-            {
-                StartCoroutine(FlipCoroutine(true, duration));
-            }
-        }
-
-        /// <summary>
-        /// 翻转到背面
-        /// </summary>
-        public void FlipToBack(float duration)
-        {
-            if (!isFlipping)
-            {
-                StartCoroutine(FlipCoroutine(false, duration));
-            }
-        }
-
-        /// <summary>
-        /// 翻转协程
-        /// </summary>
-        private IEnumerator FlipCoroutine(bool toFront, float duration)
-        {
-            isFlipping = true;
-
-            float elapsed = 0;
-            float startRotation = transform.eulerAngles.y;
-            float endRotation = toFront ? 180 : 0;
-
-            // 如果当前是正面要翻到背面，则从180翻到360（0）
-            if (!toFront && startRotation > 90)
-            {
-                endRotation = 360;
-            }
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                float t = flipCurve.Evaluate(elapsed / duration);
-                float currentRotation = Mathf.Lerp(startRotation, endRotation, t);
-
-                Vector3 eulerAngles = transform.eulerAngles;
-                eulerAngles.y = currentRotation;
-                transform.eulerAngles = eulerAngles;
-
-                // 在90度时切换正反面
-                if (faceController != null)
-                {
-                    float normalizedRotation = currentRotation % 360;
-                    if (normalizedRotation >= 90 && normalizedRotation < 270)
-                    {
-                        faceController.ShowFront();
-                    }
-                    else
-                    {
-                        faceController.ShowBack();
-                    }
-                }
-
-                yield return null;
-            }
-
-            // 确保最终旋转值正确
-            Vector3 finalEuler = transform.eulerAngles;
-            finalEuler.y = endRotation % 360;
-            transform.eulerAngles = finalEuler;
-
-            isFlipping = false;
-        }
 
         /// <summary>
         /// 交换动画

@@ -82,7 +82,6 @@ GameObject:
   - component: {fileID: 150461806877517405}
   - component: {fileID: 7321667442912465670}
   - component: {fileID: 7788513003377531102}
-  - component: {fileID: 1529511428893185032}
   m_Layer: 5
   m_Name: FishCard
   m_TagString: Untagged
@@ -168,6 +167,7 @@ MonoBehaviour:
   moveSpeedLimit: 50
   selected: 0
   selectionOffset: 50
+  pileMode: 0
   isHovering: 0
   isDragging: 0
   wasDragged: 0
@@ -192,17 +192,3 @@ MonoBehaviour:
   SelectEvent:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &1529511428893185032
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4521102910333834211}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4a1cb7a449b20b04288d974f7742b38a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  frontFace: {fileID: 2956320164093237904}
-  backFace: {fileID: 3781419159213248053}

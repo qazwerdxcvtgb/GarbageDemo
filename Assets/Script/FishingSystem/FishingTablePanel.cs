@@ -183,12 +183,6 @@ namespace FishingSystem
                 // 消耗1点体力
                 playerState.ModifyHealth(-1);
 
-                // 翻转到正面
-                if (slot.currentCard != null)
-                {
-                    slot.currentCard.FlipToFront(0.5f);
-                }
-
                 // 触发揭示效果
                 if (slot.currentCard != null && slot.currentCard.cardData != null)
                 {

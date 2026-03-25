@@ -24,7 +24,6 @@ namespace FishCardSystem
         [Header("组件引用")]
         private Canvas canvas;
         private Image imageComponent;
-        private CardFaceController faceController;
 
         [Header("视觉设置")]
         [SerializeField] private bool instantiateVisual = true;
@@ -62,29 +61,37 @@ namespace FishCardSystem
 
         #region Unity Lifecycle
 
-        private void Start()
+        private void Awake()
         {
             // 获取组件
             canvas = GetComponentInParent<Canvas>();
             imageComponent = GetComponent<Image>();
-            faceController = GetComponent<CardFaceController>();
 
-            // 初始化事件
-            if (PointerEnterEvent == null) PointerEnterEvent = new UnityEvent<FishCard>();
-            if (PointerExitEvent == null) PointerExitEvent = new UnityEvent<FishCard>();
-            if (PointerDownEvent == null) PointerDownEvent = new UnityEvent<FishCard>();
-            if (PointerUpEvent == null) PointerUpEvent = new UnityEvent<FishCard, bool>();
-            if (BeginDragEvent == null) BeginDragEvent = new UnityEvent<FishCard>();
-            if (EndDragEvent == null) EndDragEvent = new UnityEvent<FishCard>();
-            if (SelectEvent == null) SelectEvent = new UnityEvent<FishCard, bool>();
+            // 初始化事件（在 Awake 中保证外部 AddListener 调用前事件已就绪）
+            PointerEnterEvent = new UnityEvent<FishCard>();
+            PointerExitEvent = new UnityEvent<FishCard>();
+            PointerDownEvent = new UnityEvent<FishCard>();
+            PointerUpEvent = new UnityEvent<FishCard, bool>();
+            BeginDragEvent = new UnityEvent<FishCard>();
+            EndDragEvent = new UnityEvent<FishCard>();
+            SelectEvent = new UnityEvent<FishCard, bool>();
+
+        }
+
+        private void Start()
+        {
+            // Awake 时可能尚未挂入 Canvas，此处补充获取
+            if (canvas == null)
+                canvas = GetComponentInParent<Canvas>();
 
             // 实例化视觉卡
             if (instantiateVisual && cardVisualPrefab != null)
             {
                 VisualCardsHandler visualHandler = FindObjectOfType<VisualCardsHandler>();
-                // 优先使用主Canvas，确保统一的缩放
-                Transform parent = canvas != null ? canvas.transform : 
-                                  (visualHandler != null ? visualHandler.transform : transform.parent);
+                // 优先挂载到 VisualCardsHandler（与示例项目一致，保证视觉层级正确）
+                Transform parent = visualHandler != null ? visualHandler.transform :
+                                  (canvas != null ? canvas.transform : transform.parent);
+
                 cardVisual = Instantiate(cardVisualPrefab, parent).GetComponent<FishCardVisual>();
                 cardVisual.Initialize(this);
             }
@@ -139,28 +146,6 @@ namespace FishCardSystem
                 selected = false;
                 transform.localPosition = Vector3.zero;
                 SelectEvent.Invoke(this, false);
-            }
-        }
-
-        /// <summary>
-        /// 翻转到正面
-        /// </summary>
-        public void FlipToFront(float duration = 0.5f)
-        {
-            if (cardVisual != null)
-            {
-                cardVisual.FlipToFront(duration);
-            }
-        }
-
-        /// <summary>
-        /// 翻转到背面
-        /// </summary>
-        public void FlipToBack(float duration = 0.5f)
-        {
-            if (cardVisual != null)
-            {
-                cardVisual.FlipToBack(duration);
             }
         }
 

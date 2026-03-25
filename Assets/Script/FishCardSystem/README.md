@@ -42,13 +42,14 @@ Unity菜单 → Edit → Project Settings → Tags and Layers → 添加Tag：`S
 ## 脚本列表
 
 ### 核心层（逻辑卡）
-- `Core/FishCard.cs` - 卡牌逻辑控制器
-- `Core/CardFaceController.cs` - 正反面控制器
+- `Core/FishCard.cs` - 卡牌逻辑控制器（Awake 初始化事件，Start 实例化视觉卡）
 
 ### 视觉层（视觉卡）
 - `Visual/FishCardVisual.cs` - 卡牌视觉控制器
-- `Visual/FishCardFrontDisplay.cs` - 正面显示模块
-- `Visual/FishCardBackDisplay.cs` - 背面显示模块
+- `Visual/FishCardFrontDisplay.cs` - 卡牌数据显示模块
+
+### 测试辅助
+- `CardSystemTester.cs` - 场景测试脚本，按槽位数量自动生成卡牌
 
 ### 管理层
 - `Manager/VisualCardsHandler.cs` - 视觉卡管理器
@@ -66,7 +67,6 @@ Unity菜单 → Edit → Project Settings → Tags and Layers → 添加Tag：`S
 - ✅ Balatro风格交互（拖拽、选中、悬停）
 - ✅ DOTween动画系统
 - ✅ 弧线排布
-- ✅ 卡牌翻转动画
 - ✅ 拖拽排序
 - ✅ 模块化设计
 
@@ -81,9 +81,6 @@ using ItemSystem;
 // 初始化卡牌
 FishCard card = GetComponent<FishCard>();
 card.Initialize(fishData);
-
-// 翻转到正面
-card.FlipToFront(0.5f);
 
 // 订阅事件
 card.SelectEvent.AddListener((c, selected) => {

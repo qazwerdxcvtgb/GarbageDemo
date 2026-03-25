@@ -8,7 +8,7 @@ namespace FishCardSystem
 {
     /// <summary>
     /// 鱼类卡牌容器管理器
-    /// 负责：槽位生成、卡牌事件绑定、拖拽排序、返回动画
+    /// 负责：槽位生成、卡牌事件绑定、拖拽排序、返回动画、悬停压缩效果
     /// </summary>
     public class FishCardHolder : MonoBehaviour
     {
@@ -19,11 +19,17 @@ namespace FishCardSystem
         [Header("动画设置")]
         [SerializeField] private bool tweenCardReturn = true;
 
+        [Header("悬停压缩效果")]
+        [SerializeField][Range(0f, 1f)] private float compressionRate = 0.5f;
+        [SerializeField] private float cardWidth = 220f;
+        [SerializeField] private float compressionTransition = 0.2f;
+
         private RectTransform rect;
         private List<FishCard> cards;
         private FishCard selectedCard;
         private FishCard hoveredCard;
         private bool isCrossing;
+        private Dictionary<FishCard, Tween> compressionTweens = new Dictionary<FishCard, Tween>();
 
         private void Start()
         {
@@ -96,6 +102,7 @@ namespace FishCardSystem
         private void OnCardPointerEnter(FishCard card)
         {
             hoveredCard = card;
+            ApplyHoverCompression(card);
         }
 
         private void OnCardPointerExit(FishCard card)
@@ -103,12 +110,14 @@ namespace FishCardSystem
             if (hoveredCard == card)
             {
                 hoveredCard = null;
+                ResetCompression();
             }
         }
 
         private void OnCardBeginDrag(FishCard card)
         {
             selectedCard = card;
+            ResetCompression();
         }
 
         private void OnCardEndDrag(FishCard card)
@@ -186,8 +195,9 @@ namespace FishCardSystem
                     Transform slot = transform.GetChild(i);
                     if (slot.childCount == 0)
                     {
-                        card.transform.SetParent(slot);
+                        card.transform.SetParent(slot, false);
                         card.transform.localPosition = Vector3.zero;
+                        card.transform.localScale = Vector3.one;
                         break;
                     }
                 }
@@ -195,8 +205,9 @@ namespace FishCardSystem
             else
             {
                 Transform slot = transform.GetChild(slotIndex);
-                card.transform.SetParent(slot);
+                card.transform.SetParent(slot, false);
                 card.transform.localPosition = Vector3.zero;
+                card.transform.localScale = Vector3.one;
             }
 
             if (!cards.Contains(card))
@@ -226,6 +237,84 @@ namespace FishCardSystem
                 card.BeginDragEvent.RemoveListener(OnCardBeginDrag);
                 card.EndDragEvent.RemoveListener(OnCardEndDrag);
             }
+        }
+
+        /// <summary>
+        /// 悬停时对两侧卡牌施加压缩偏移，为悬停卡牌创造展示空间
+        /// </summary>
+        private void ApplyHoverCompression(FishCard hoveredCard)
+        {
+            int n = cards.Count;
+            if (n <= 1 || compressionRate <= 0f) return;
+
+            int h = hoveredCard.ParentIndex();
+
+            // 最右侧卡牌已完全可见，无需压缩
+            if (h == n - 1)
+            {
+                ResetCompression();
+                return;
+            }
+
+            // 从实际槽位 localPosition 计算当前平均间距（canvas 本地单位）
+            float leftEdgeX = transform.GetChild(0).localPosition.x;
+            float rightEdgeX = transform.GetChild(n - 1).localPosition.x;
+            float normalSpacing = (n > 1) ? (rightEdgeX - leftEdgeX) / (n - 1) : 0f;
+
+            // compressionRate=1 时目标间距：所有卡牌恰好填满 holder 宽度
+            float holderWidth = rect.rect.width;
+            float targetSpacing = (holderWidth - cardWidth) / (n - 1);
+
+            // 每个间距的压缩量（不允许为负）
+            float compressionPerGap = compressionRate * Mathf.Max(0f, normalSpacing - targetSpacing);
+
+            foreach (var card in cards)
+            {
+                if (card == null) continue;
+
+                int i = card.ParentIndex();
+                float offsetX;
+
+                if (i <= h)
+                {
+                    // 左侧组 + 悬停卡：随左组向左位移，card 0 偏移量自然为 0（锚定）
+                    offsetX = -i * compressionPerGap;
+                }
+                else
+                {
+                    // 右侧组：card n-1 偏移量自然为 0（锚定），其余向右位移
+                    offsetX = (n - 1 - i) * compressionPerGap;
+                }
+
+                SetCompressionTween(card, offsetX);
+            }
+        }
+
+        /// <summary>
+        /// 重置所有卡牌的压缩偏移
+        /// </summary>
+        private void ResetCompression()
+        {
+            foreach (var card in cards)
+            {
+                if (card == null) continue;
+                SetCompressionTween(card, 0f);
+            }
+        }
+
+        /// <summary>
+        /// 对单张卡牌设置 X 轴压缩偏移（保留 Y 轴选中偏移）
+        /// </summary>
+        private void SetCompressionTween(FishCard card, float targetOffsetX)
+        {
+            if (compressionTweens.TryGetValue(card, out Tween existing))
+            {
+                existing?.Kill();
+            }
+
+            Tween tween = card.transform.DOLocalMoveX(targetOffsetX, compressionTransition)
+                .SetEase(Ease.OutBack);
+            compressionTweens[card] = tween;
         }
     }
 }
