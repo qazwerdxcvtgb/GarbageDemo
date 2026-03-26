@@ -31,6 +31,9 @@ namespace FishingSystem
         [Header("厚度显示")]
         [SerializeField] private PileThicknessDisplay thicknessDisplay;
 
+        [Header("视觉 - 空牌堆")]
+        [SerializeField] private GameObject emptyView;
+
         [Header("面板")]
         [SerializeField] private GameObject cardPilePanelPrefab;
 
@@ -73,6 +76,7 @@ namespace FishingSystem
         {
             cards = new List<FishData>(cardList);
             currentState = cards.Count > 0 ? PileState.FaceDown : PileState.Empty;
+            if (currentState == PileState.Empty) OnPileBecameEmpty();
             RefreshDisplay();
         }
 
@@ -80,6 +84,11 @@ namespace FishingSystem
         /// 获取顶牌（只读，不移除）
         /// </summary>
         public FishData GetTopCard() => cards.Count > 0 ? cards[0] : null;
+
+        /// <summary>
+        /// 牌堆变空时触发，预留扩展点（当前为空实现）
+        /// </summary>
+        protected virtual void OnPileBecameEmpty() { }
 
         /// <summary>
         /// 翻开顶牌：FaceDown → FaceUp
@@ -103,6 +112,7 @@ namespace FishingSystem
             FishData removed = cards[0];
             cards.RemoveAt(0);
             currentState = cards.Count > 0 ? PileState.FaceDown : PileState.Empty;
+            if (currentState == PileState.Empty) OnPileBecameEmpty();
             RefreshDisplay();
 
             return removed;
@@ -121,15 +131,18 @@ namespace FishingSystem
                 case PileState.Empty:
                     SetCardBackVisible(false);
                     SetCardFaceVisible(false);
+                    SetEmptyViewVisible(true);
                     break;
 
                 case PileState.FaceDown:
                     SetCardFaceVisible(false);
+                    SetEmptyViewVisible(false);
                     ShowCardBack();
                     break;
 
                 case PileState.FaceUp:
                     SetCardBackVisible(false);
+                    SetEmptyViewVisible(false);
                     ShowCardFace();
                     break;
             }
@@ -191,6 +204,11 @@ namespace FishingSystem
         {
             if (cardFaceContainer != null)
                 cardFaceContainer.gameObject.SetActive(visible);
+        }
+
+        private void SetEmptyViewVisible(bool visible)
+        {
+            if (emptyView != null) emptyView.SetActive(visible);
         }
 
         private void UpdateThickness()

@@ -240,6 +240,28 @@ namespace FishCardSystem
         }
 
         /// <summary>
+        /// 动态调整槽位数量
+        /// 增加时在末尾追加新槽位；减少时从末尾销毁多余槽位（同时移除其持有的卡牌）
+        /// </summary>
+        public void SetSlotCount(int count)
+        {
+            count = Mathf.Max(0, count);
+
+            // 减少：从末尾逐个销毁多余槽位
+            while (transform.childCount > count)
+            {
+                Transform slot = transform.GetChild(transform.childCount - 1);
+                FishCard card = slot.GetComponentInChildren<FishCard>();
+                if (card != null) RemoveCard(card);
+                Destroy(slot.gameObject);
+            }
+
+            // 增加：实例化新槽位追加到末尾
+            while (transform.childCount < count)
+                Instantiate(slotPrefab, transform);
+        }
+
+        /// <summary>
         /// 悬停时对两侧卡牌施加压缩偏移，为悬停卡牌创造展示空间
         /// </summary>
         private void ApplyHoverCompression(FishCard hoveredCard)

@@ -45,6 +45,14 @@ namespace FishingSystem
 
         private void Awake()
         {
+            // 确保 Canvas 排序层高于根 Canvas（150），使面板渲染在牌堆之上
+            Canvas selfCanvas = GetComponent<Canvas>();
+            if (selfCanvas != null)
+            {
+                selfCanvas.overrideSorting = true;
+                selfCanvas.sortingOrder    = 160;
+            }
+
             // overrideSorting 的嵌套 Canvas 必须有自己的 GraphicRaycaster 才能处理输入和拦截射线
             if (GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
                 gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();

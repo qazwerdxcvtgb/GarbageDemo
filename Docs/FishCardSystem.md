@@ -28,6 +28,7 @@ CurveParameters（ScriptableObject）定义手牌弧线曲线
 | `FishCardVisual` | `Visual/FishCardVisual.cs` | 视觉卡：动画、跟随、弧线 |
 | `FishCardFrontDisplay` | `Visual/FishCardFrontDisplay.cs` | 卡牌 UI 数据绑定 |
 | `FishCardHolder` | `Manager/FishCardHolder.cs` | 容器：槽位管理、拖拽排序、悬停压缩效果 |
+| `HandPanelUI` | `Manager/HandPanelUI.cs` | 手牌面板 UI 管理：图层、折叠/展开动画、槽位同步 |
 | `VisualCardsHandler` | `Manager/VisualCardsHandler.cs` | 视觉卡全局注册管理 |
 | `CurveParameters` | `Data/CurveParameters.cs` | 弧线 ScriptableObject |
 | `CardSystemTester` | `CardSystemTester.cs` | 测试辅助：自动生成测试卡牌 |
@@ -69,6 +70,13 @@ fishCard.ParentIndex()                 // 在父节点中的索引
 | `SelectEvent(card, selected)` | 选中状态变化 |
 
 ### FishCardHolder
+
+```csharp
+holder.SetSlotCount(int count)  // 动态调整槽位数量（增/减），由 HandPanelUI 自动调用
+holder.AddCard(FishCard card, int slotIndex = -1)   // 添加卡牌到容器
+holder.RemoveCard(FishCard card)                     // 从容器移除卡牌
+holder.GetCards()                                    // 返回当前卡牌列表副本
+```
 
 **Inspector 关键参数**：
 

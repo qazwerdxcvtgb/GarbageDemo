@@ -113,6 +113,7 @@ CardPile（CardPile.cs + Image 透明遮罩，RaycastTarget=true）
 | `largeCardBack` | Large 尺寸卡背 |
 | `cardFaceContainer` | 卡面生成的父 Transform |
 | `thicknessDisplay` | PileThicknessDisplay 组件引用 |
+| `emptyView` | 空牌堆视觉容器（Empty 状态时显示） |
 | `cardPilePanelPrefab` | 点击牌堆时实例化的 CardPilePanel 预制体 |
 
 ### 状态枚举（复用 PileState）
@@ -124,21 +125,24 @@ enum PileState { Empty, FaceDown, FaceUp }
 ### API
 
 ```csharp
-pile.SetCards(List<FishData> list)   // 注入卡序，自动进入 FaceDown
+pile.SetCards(List<FishData> list)   // 注入卡序，自动进入 FaceDown；若列表为空则进入 Empty
 pile.Reveal()                        // FaceDown → FaceUp
-pile.RemoveTopCard()                 // 移除顶牌并刷新，返回 FishData
+pile.RemoveTopCard()                 // 移除顶牌并刷新，返回 FishData；耗尽则进入 Empty
 pile.GetTopCard()                    // 只读取顶牌
 pile.CardCount                       // 当前张数
 pile.State                           // 当前 PileState
 // event Action<CardPile> OnPileClicked  // 点击时触发
+// protected virtual void OnPileBecameEmpty()  // 牌堆变空时触发（可在子类中重写）
 ```
 
 ### 状态流转
 
 ```
 SetCards(list) → FaceDown（显示对应尺寸卡背）
+             └→ Empty（list 为空，显示 emptyView，触发 OnPileBecameEmpty）
 Reveal()       → FaceUp（显示 FishCardVisual 卡面）
-RemoveTopCard()→ FaceDown（显示新顶牌卡背）或 Empty（牌堆耗尽）
+RemoveTopCard()→ FaceDown（显示新顶牌卡背）
+             └→ Empty（牌堆耗尽，显示 emptyView，触发 OnPileBecameEmpty）
 ```
 
 ---

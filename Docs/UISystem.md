@@ -6,6 +6,51 @@
 
 ---
 
+## HandPanelUI（手牌面板 UI 管理器）
+
+**路径**：`Assets/Script/FishCardSystem/Manager/HandPanelUI.cs`  
+**命名空间**：`FishCardSystem`
+
+### 职责
+- 设置 HandPanel 的 Canvas 图层（`overrideSorting = true`，默认 `sortingOrder = 100`）
+- 提供手牌区域（`FishCardHolder`）折叠/展开按钮及 DOTween 动画
+- 订阅 `HandManager.OnHandChanged`，自动调用 `FishCardHolder.SetSlotCount()` 同步槽位数
+- 按钮文本实时显示当前手牌数量和展开状态
+
+### Inspector 参数
+
+| 参数 | 说明 |
+|------|------|
+| `panelCanvas` | HandPanel 根节点上的 Canvas |
+| `sortingOrder` | 图层排序值（默认 100，高于 CardPilePanel 的 50，低于拖拽手牌的 200） |
+| `cardHolder` | 子节点 FishCardHolder 组件 |
+| `holderRect` | FishCardHolder 的 RectTransform |
+| `hiddenOffsetY` | 收起时的 Y 轴偏移量（负值=向下隐藏，按实际布局调整） |
+| `animDuration` | 动画时长（秒） |
+| `startExpanded` | 初始是否展开 |
+| `toggleButton` | 折叠/展开按钮 |
+| `toggleButtonText` | 按钮文本（TMP），显示「手牌 N ▼/▲」 |
+| `extraButtons` | 预留按钮数组（位置固定，默认隐藏） |
+
+### API
+
+```csharp
+panel.Show()    // 展开手牌区域
+panel.Hide()    // 收起手牌区域
+panel.Toggle()  // 切换展开/收起（绑定到 toggleButton）
+```
+
+### 图层关系
+
+```
+拖拽手牌 FishCardVisual（sortingOrder 200）  ← BeginDrag 时临时置顶
+HandPanel Canvas（sortingOrder 100）          ← HandPanelUI 设置
+CardPilePanel Canvas（sortingOrder 50）       ← CardPilePanel 已有设置
+CardPile（无 overrideSorting）               ← 最低
+```
+
+---
+
 ## HandUIPanel（手牌 UI 面板）
 
 **路径**：`Assets/Script/UI/HandUIPanel.cs`  
