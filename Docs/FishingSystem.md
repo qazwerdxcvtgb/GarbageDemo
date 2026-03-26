@@ -1,7 +1,7 @@
 # 钓鱼系统
 
 > [← 返回索引](INDEX.md)  
-> 覆盖脚本：`FishingSystem/CardPile.cs` · `FishingSystem/PileThicknessDisplay.cs` · `FishingSystem/CardPileTest.cs` · `FishingSystem/FishingTablePanel.cs` · `FishingSystem/CardPileSlot.cs` · `FishingSystem/RevealOverlayPanel.cs`
+> 覆盖脚本：`FishingSystem/CardPile.cs` · `FishingSystem/CardPilePanel.cs` · `FishingSystem/PileThicknessDisplay.cs` · `FishingSystem/CardPileTest.cs` · `FishingSystem/FishingTablePanel.cs` · `FishingSystem/CardPileSlot.cs` · `FishingSystem/RevealOverlayPanel.cs`
 
 ---
 
@@ -113,6 +113,7 @@ CardPile（CardPile.cs + Image 透明遮罩，RaycastTarget=true）
 | `largeCardBack` | Large 尺寸卡背 |
 | `cardFaceContainer` | 卡面生成的父 Transform |
 | `thicknessDisplay` | PileThicknessDisplay 组件引用 |
+| `cardPilePanelPrefab` | 点击牌堆时实例化的 CardPilePanel 预制体 |
 
 ### 状态枚举（复用 PileState）
 
@@ -139,6 +140,73 @@ SetCards(list) → FaceDown（显示对应尺寸卡背）
 Reveal()       → FaceUp（显示 FishCardVisual 卡面）
 RemoveTopCard()→ FaceDown（显示新顶牌卡背）或 Empty（牌堆耗尽）
 ```
+
+---
+
+## CardPilePanel（牌堆交互面板）
+
+**路径**：`Assets/Script/FishingSystem/CardPilePanel.cs`  
+**命名空间**：`FishingSystem`
+
+### 职责
+
+单击 `CardPile` 时由其实例化并显示，根据顶牌揭示状态切换 FaceDown / FaceUp 视图，提供揭示、捕获、取消三种操作。
+
+### Inspector 参数
+
+| 参数 | 说明 |
+|------|------|
+| `cardBackView` | FaceDown 视图根 GameObject |
+| `cardBackImage` | 卡背图 Image 组件 |
+| `smallBackSprite` | Small 尺寸卡背 Sprite |
+| `mediumBackSprite` | Medium 尺寸卡背 Sprite |
+| `largeBackSprite` | Large 尺寸卡背 Sprite |
+| `cardFaceView` | FaceUp 视图根 GameObject |
+| `cardHolder` | 装载 FishCard 的 FishCardHolder（需配 slotPrefab、cardsToSpawn=1） |
+| `fishCardPrefab` | FishCard 预制体，FaceUp 时实例化 |
+| `cancelButton` | 取消按钮（始终可见） |
+| `revealButton` | 揭示按钮（仅 FaceDown 时可见） |
+| `captureButton` | 捕获按钮（仅 FaceUp 时可见） |
+| `displayScale` | 放大倍率，默认 1.5（Range 0.5–3） |
+
+### API
+
+```csharp
+panel.Show(CardPile pile)   // 打开面板，由 CardPile.OnPointerClick 调用
+```
+
+### 状态流转
+
+```
+Show(pile)
+  ├─ pile.State == FaceDown → ShowFaceDown() → 展示卡背 + 揭示按钮
+  │     揭示按钮点击 → TriggerRevealEffects() + pile.Reveal() → ShowFaceUp()
+  └─ pile.State == FaceUp  → ShowFaceUp()  → 展示 FishCard + 捕获按钮
+        捕获按钮点击 → TriggerCaptureEffects() + ClosePanel()
+        取消按钮点击 → ClosePanel() → Destroy(gameObject)
+```
+
+### 预制体搭建说明
+
+**建议路径**：`Assets/Prefab/FishCardSystem/CardPilePanel.prefab`
+
+```
+CardPilePanel               (RectTransform, Canvas[overrideSorting], CardPilePanel)
+├── Mask                    (Image 半透明遮罩，Button → 点击遮罩等同取消)
+└── PanelRoot               (RectTransform 居中内容区)
+    ├── CardDisplayArea     (RectTransform)
+    │   ├── CardBackView    (RectTransform - FaceDown 视图根)
+    │   │   └── CardBackImage (Image - 卡背图)
+    │   └── CardFaceView    (RectTransform - FaceUp 视图根)
+    │       └── FishCardHolder (FishCardHolder，slotPrefab=FishCardSlot，cardsToSpawn=1)
+    └── ButtonArea          (HorizontalLayoutGroup)
+        ├── CancelButton    (Button)
+        ├── RevealButton    (Button - FaceDown 时激活)
+        └── CaptureButton   (Button - FaceUp 时激活)
+```
+
+> **注意**：FishCardHolder 的 `slotPrefab` 必须指向 `FishCardSlot` 预制体，`cardsToSpawn` 设为 1，使 Start() 时自动生成一个空槽供 AddCard() 使用。  
+> 预制体完成后将其拖至每个 `CardPile` 组件的 `cardPilePanelPrefab` 字段。
 
 ---
 

@@ -31,6 +31,9 @@ namespace FishingSystem
         [Header("厚度显示")]
         [SerializeField] private PileThicknessDisplay thicknessDisplay;
 
+        [Header("面板")]
+        [SerializeField] private GameObject cardPilePanelPrefab;
+
         [Header("状态（只读调试）")]
         [SerializeField] private PileState currentState = PileState.Empty;
 
@@ -201,6 +204,17 @@ namespace FishingSystem
         public void OnPointerClick(PointerEventData eventData)
         {
             OnPileClicked?.Invoke(this);
+
+            // 若配置了交互面板预制体且牌堆非空，则实例化面板并显示
+            if (cardPilePanelPrefab == null || cards.Count == 0) return;
+
+            Canvas rootCanvas = GetComponentInParent<Canvas>();
+            Transform panelParent = rootCanvas != null ? rootCanvas.transform : transform.parent;
+
+            CardPilePanel panel = Instantiate(cardPilePanelPrefab, panelParent)
+                                      .GetComponentInChildren<CardPilePanel>(true);
+            if (panel != null)
+                panel.Show(this);
         }
 
         #endregion

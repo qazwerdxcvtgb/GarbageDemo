@@ -189,6 +189,7 @@ MonoBehaviour:
   largeCardBack: {fileID: 7651623225274750716}
   cardFaceContainer: {fileID: 2141382072113601342}
   thicknessDisplay: {fileID: 8258144410494072517}
+  cardPilePanelPrefab: {fileID: 2210599399067789808, guid: 851dec58c94f0a94899a350cddb1e786, type: 3}
   currentState: 0
 --- !u!222 &793024634980763581
 CanvasRenderer:
