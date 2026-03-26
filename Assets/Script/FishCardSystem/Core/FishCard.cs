@@ -30,6 +30,7 @@ namespace FishCardSystem
         [SerializeField] private bool instantiateVisual = true;
         [SerializeField] private GameObject cardVisualPrefab;
         [HideInInspector] public FishCardVisual cardVisual;
+        [HideInInspector] public Transform visualParentOverride;
 
         [Header("移动参数")]
         [SerializeField] private float moveSpeedLimit = 50f;
@@ -88,14 +89,26 @@ namespace FishCardSystem
             // 实例化视觉卡
             if (instantiateVisual && cardVisualPrefab != null)
             {
-                VisualCardsHandler visualHandler = FindObjectOfType<VisualCardsHandler>();
-                // 优先挂载到 VisualCardsHandler（与示例项目一致，保证视觉层级正确）
-                Transform parent = visualHandler != null ? visualHandler.transform :
-                                  (canvas != null ? canvas.transform : transform.parent);
-
-                cardVisual = Instantiate(cardVisualPrefab, parent).GetComponent<FishCardVisual>();
+                cardVisual = Instantiate(cardVisualPrefab, ResolveVisualParent()).GetComponent<FishCardVisual>();
                 cardVisual.Initialize(this);
             }
+        }
+
+        /// <summary>
+        /// 决定 FishCardVisual 实例化后挂载的父节点
+        /// 优先级：visualParentOverride → VisualCardsHandler → 最近 Canvas → 直接父节点
+        /// </summary>
+        private Transform ResolveVisualParent()
+        {
+            if (visualParentOverride != null)
+                return visualParentOverride;
+
+            VisualCardsHandler handler = FindObjectOfType<VisualCardsHandler>();
+            if (handler != null)
+                return handler.transform;
+
+            Canvas localCanvas = GetComponentInParent<Canvas>();
+            return localCanvas != null ? localCanvas.transform : transform.parent;
         }
 
         private void Update()

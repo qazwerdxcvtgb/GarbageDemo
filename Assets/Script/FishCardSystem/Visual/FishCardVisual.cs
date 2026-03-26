@@ -211,6 +211,15 @@ namespace FishCardSystem
             rotationDelta = Vector3.Lerp(rotationDelta, deltaToUse * rotationAmount, 
                                         rotationSpeed * Time.deltaTime);
 
+            // 牌堆模式下禁用移动驱动的Z轴自转，平滑归零后提前返回
+            if (parentCard.IsPileMode)
+            {
+                Vector3 pileRot = transform.eulerAngles;
+                pileRot.z = Mathf.LerpAngle(pileRot.z, 0f, rotationSpeed * Time.deltaTime);
+                transform.eulerAngles = pileRot;
+                return;
+            }
+
             // 只影响Z轴旋转
             float zRotation = -rotationDelta.x;
             zRotation = Mathf.Clamp(zRotation, -60f, 60f);
@@ -249,8 +258,8 @@ namespace FishCardSystem
                 tiltY = offset.x * manualTiltAmount;
             }
 
-            // Z轴倾斜（拖拽时归零，松手后还原弧线旋转；curve为null时归零）
-            float tiltZ = (parentCard.isDragging || curve == null) ? 0f : 
+            // Z轴倾斜（拖拽/牌堆模式/curve为null时归零，其余时由弧线曲线驱动）
+            float tiltZ = (parentCard.isDragging || parentCard.IsPileMode || curve == null) ? 0f : 
                          (curveRotationOffset * curve.rotationInfluence * parentCard.SiblingAmount());
 
             // 应用倾斜
@@ -396,10 +405,11 @@ namespace FishCardSystem
 
             transform.DOScale(scaleOnSelect, scaleTransition).SetEase(scaleEase);
 
-            // 提升Canvas排序层级
+            // 提升 Canvas 排序层级：手牌拖拽时置顶，确保始终显示在面板之上
             if (canvas != null)
             {
                 canvas.overrideSorting = true;
+                canvas.sortingOrder = 200;
             }
         }
 
@@ -410,10 +420,11 @@ namespace FishCardSystem
 
             transform.DOScale(1f, scaleTransition).SetEase(scaleEase);
 
-            // 恢复Canvas排序
+            // 恢复 Canvas 排序
             if (canvas != null)
             {
                 canvas.overrideSorting = false;
+                canvas.sortingOrder = 0;
             }
         }
 

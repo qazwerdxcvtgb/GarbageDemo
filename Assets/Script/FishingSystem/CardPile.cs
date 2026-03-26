@@ -165,6 +165,8 @@ namespace FishingSystem
             currentDisplayCard = cardObj.GetComponent<FishCard>();
             if (currentDisplayCard != null)
             {
+                // 视觉卡锚定在牌堆内部，不进入 VisualCardsHandler，保证层级在面板之下
+                currentDisplayCard.visualParentOverride = cardFaceContainer;
                 currentDisplayCard.Initialize(top);
                 currentDisplayCard.SetPileMode(true);
             }

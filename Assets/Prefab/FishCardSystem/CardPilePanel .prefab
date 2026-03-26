@@ -331,6 +331,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4908159842403299583}
   - component: {fileID: 6214968995990960563}
+  - component: {fileID: 9222893878137840371}
   m_Layer: 5
   m_Name: 'CardPilePanel '
   m_TagString: Untagged
@@ -384,6 +385,29 @@ MonoBehaviour:
   revealButton: {fileID: 8996069435217931189}
   captureButton: {fileID: 1817127162585273078}
   displayScale: 1.5
+--- !u!223 &9222893878137840371
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2210599399067789808}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 1
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 0
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 100
+  m_TargetDisplay: 0
 --- !u!1 &2439756107329663826
 GameObject:
   m_ObjectHideFlags: 0

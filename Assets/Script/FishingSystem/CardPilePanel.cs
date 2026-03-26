@@ -45,6 +45,10 @@ namespace FishingSystem
 
         private void Awake()
         {
+            // overrideSorting 的嵌套 Canvas 必须有自己的 GraphicRaycaster 才能处理输入和拦截射线
+            if (GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
+                gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+
             if (cancelButton  != null) cancelButton.onClick.AddListener(OnCancelClicked);
             if (revealButton  != null) revealButton.onClick.AddListener(OnRevealClicked);
             if (captureButton != null) captureButton.onClick.AddListener(OnCaptureClicked);
@@ -154,6 +158,8 @@ namespace FishingSystem
 
             if (displayCard != null)
             {
+                // 视觉卡锚定在 cardFaceView 内（与 FishCardHolder 同父级），便于层级管理和 Mask 剪裁
+                displayCard.visualParentOverride = cardFaceView != null ? cardFaceView.transform : transform;
                 displayCard.Initialize(data);
                 displayCard.SetPileMode(true);
             }
