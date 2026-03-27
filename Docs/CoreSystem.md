@@ -1,13 +1,13 @@
 # 核心系统
 
 > [← 返回索引](INDEX.md)  
-> 覆盖脚本：`GameManager.cs` · `CharacterState.cs` · `GameEvents.cs`
+> 覆盖脚本：`Script/Core/` 目录下所有脚本
 
 ---
 
 ## GameManager
 
-**路径**：`Assets/Script/GameManager.cs`  
+**路径**：`Assets/Script/Core/GameManager.cs`  
 **模式**：单例 `GameManager.Instance`，`DontDestroyOnLoad`
 
 ### 疯狂值
@@ -45,6 +45,12 @@ GameManager.Instance.EmptyCardDrawnCount             // 读取累计空牌数
 GameManager.Instance.ResetEmptyCardCount()           // 重置统计
 ```
 
+### 游戏重置
+
+```csharp
+GameManager.Instance.ResetAll()   // 重置疯狂值归零 + 空牌统计归零（由 DayManager 调用）
+```
+
 ### 事件
 
 | 事件 | 类型 | 说明 |
@@ -57,7 +63,7 @@ GameManager.Instance.ResetEmptyCardCount()           // 重置统计
 
 ## CharacterState
 
-**路径**：`Assets/Script/CharacterState.cs`  
+**路径**：`Assets/Script/Core/CharacterState.cs`  
 **挂载**：玩家 GameObject，**非全局单例**，需持有引用
 
 ### 属性
@@ -66,18 +72,22 @@ GameManager.Instance.ResetEmptyCardCount()           // 重置统计
 characterState.MaxHealth      // 最大体力（默认 10）
 characterState.CurrentHealth  // 当前体力（范围 0~MaxHealth）
 characterState.GoldAmount     // 金币数量（≥0）
+characterState.CurrentDepth   // 玩家当前深度（FishDepth 枚举，默认 Depth1）
 ```
 
 ### 方法
 
 ```csharp
-characterState.ModifyHealth(int)     // 修改体力（正增负减，自动 Clamp）
-characterState.ModifyMaxHealth(int)  // 修改最大体力
-characterState.ModifyGold(int)       // 修改金币（正增负减）
-characterState.RestoreFullHealth()   // 满体力恢复
-characterState.HasEnoughGold(int)    // 检查金币是否足够
-characterState.IsDead()              // 体力是否为 0
-characterState.IsHealthFull()        // 体力是否已满
+characterState.ModifyHealth(int)          // 修改体力（正增负减，自动 Clamp）
+characterState.ModifyMaxHealth(int)       // 修改最大体力
+characterState.ModifyGold(int)            // 修改金币（正增负减）
+characterState.RestoreFullHealth()        // 满体力恢复
+characterState.HasEnoughGold(int)         // 检查金币是否足够
+characterState.IsDead()                   // 体力是否为 0
+characterState.IsHealthFull()             // 体力是否已满
+characterState.SetDepth(FishDepth)        // 设置玩家深度等级
+characterState.CanAccessDepth(FishDepth)  // 检查是否可访问指定深度（currentDepth >= pileDepth）
+characterState.ResetState()              // 重置到初始值（由 DayManager 调用）
 ```
 
 ### 事件
@@ -87,12 +97,13 @@ characterState.IsHealthFull()        // 体力是否已满
 | `OnHealthChanged` | 当前体力变化 |
 | `OnMaxHealthChanged` | 最大体力变化 |
 | `OnGoldChanged` | 金币变化 |
+| `OnDepthChanged` | 玩家深度变化，参数类型 `FishDepth` |
 
 ---
 
 ## GameEvents
 
-**路径**：`Assets/Script/GameEvents.cs`  
+**路径**：`Assets/Script/Core/GameEvents.cs`  
 全局事件类型定义，其他脚本共用这些类型。
 
 ```csharp
@@ -102,6 +113,21 @@ public class IntValueChangedEvent : UnityEvent<int> { }
 // 疯狂等级变化事件
 public class SanityLevelChangedEvent : UnityEvent<SanityLevel> { }
 
+// 玩家深度变化事件
+public class FishDepthChangedEvent : UnityEvent<FishDepth> { }
+
 // 疯狂等级枚举（详见 GameManager 章节的等级对照表）
 public enum SanityLevel { Level0, Level1, Level2, Level3, Level4, Level5 }
+
+// 游戏阶段枚举（天数系统使用）
+public enum GamePhase { DayStart, Refresh, Declaration, Action, DayEnd, GameOver }
+
+// 天数变化事件
+public class DayChangedEvent : UnityEvent<int> { }
+
+// 游戏阶段变化事件
+public class GamePhaseChangedEvent : UnityEvent<GamePhase> { }
+
+// 装备面板开关事件
+public class EquipmentPanelToggleEvent : UnityEvent { }
 ```

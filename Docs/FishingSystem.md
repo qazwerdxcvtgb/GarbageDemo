@@ -1,79 +1,103 @@
 # 钓鱼系统
 
 > [← 返回索引](INDEX.md)  
-> 覆盖脚本：`FishingSystem/CardPile.cs` · `FishingSystem/CardPilePanel.cs` · `FishingSystem/PileThicknessDisplay.cs` · `FishingSystem/CardPileTest.cs` · `FishingSystem/FishingTablePanel.cs` · `FishingSystem/CardPileSlot.cs` · `FishingSystem/RevealOverlayPanel.cs`
+> 覆盖脚本：`FishingSystem/FishingTableManager.cs` · `FishingSystem/CardPile.cs` · `FishingSystem/CardPilePanel.cs` · `FishingSystem/PileThicknessDisplay.cs`
 
 ---
 
-## FishingTablePanel（钓鱼牌桌）
+## 架构概览
 
-**路径**：`Assets/Script/FishingSystem/FishingTablePanel.cs`  
-**模式**：单例 `FishingTablePanel.Instance`（懒加载 FindObjectOfType）  
+```
+ItemPool（数据层）
+  │  Start 时一次性读取初始卡序
+  ▼
+FishingTableManager（逻辑层，单例）
+  │  SetCards() 注入各 CardPile，持有 CharacterState 引用
+  ├─► CardPile × 9（视图层，自持卡序）
+  │     │  OnPointerClick → 实例化 CardPilePanel
+  │     ▼
+  │   CardPilePanel（交互层，按需实例化）
+  │     │  TryReveal / TryCapture
+  └─────┘  回调 FishingTableManager
+```
+
+### 数据分层原则
+
+| 层级 | 脚本 | 职责 |
+|------|------|------|
+| 数据层 | `ItemPool` | 从 Resources 加载所有 FishData，完成分池打乱，提供初始卡序；保管非鱼类 Deck（Trash/Consumable/Equipment）的随机抽取 |
+| 钓鱼逻辑 | `FishingTableManager` | 翻牌/捕获/放弃 逻辑入口；`TryAbandon` 从杂鱼牌库抽取一张加入手牌 |
+| 逻辑层 | `FishingTableManager` | 初始化 9 个 CardPile；体力检查与扣除；捕获流程（加入手牌）；多牌堆操作入口 |
+| 视图层 | `CardPile` | 自持 `List<FishData>`，管理 FaceDown / FaceUp / Empty 三态显示；与 ItemPool 解耦 |
+| 交互层 | `CardPilePanel` | 点击牌堆时实例化，处理翻牌/捕获/取消 UI；调用 `FishingTableManager` 执行游戏逻辑 |
+
+---
+
+## FishingTableManager（钓鱼牌桌管理器）
+
+**路径**：`Assets/Script/FishingSystem/FishingTableManager.cs`  
+**模式**：单例 `FishingTableManager.Instance`  
 **命名空间**：`FishingSystem`
 
 ### 职责
 
-管理 3×3 九槽位钓鱼桌的初始化和交互，依赖 `ItemPool` 抽取卡牌。
+- 游戏启动时从 `ItemPool.GetFragmentedPool()` 读取初始卡序，深拷贝后注入各 `CardPile.SetCards()`
+- 作为翻牌（体力-1）、捕获（体力-staminaCost + 加入手牌）的唯一游戏逻辑入口
+- 提供多牌堆批量操作方法
 
 ### Inspector 参数
 
 | 参数 | 说明 |
 |------|------|
-| `pileGridContainer` | 3×3 网格容器 Transform |
-| `cardPileSlotPrefab` | CardPileSlot 预制体 |
-| `revealOverlay` | RevealOverlayPanel 引用 |
-| `playerState` | 玩家 CharacterState 引用 |
+| `pileConfigs` | 长度 9 的 PileConfig 数组，每项绑定一个 CardPile 实例及其 depth、poolIndex |
+| `playerState` | 玩家 `CharacterState` 引用 |
+| `showDebugInfo` | 是否输出调试日志 |
 
-### 槽位索引映射
+### PileConfig 结构体
 
-| 槽位索引 | 深度 | poolIndex |
-|---------|------|-----------|
+```csharp
+[Serializable]
+public struct PileConfig
+{
+    public CardPile pile;       // 对应场景中的 CardPile 实例
+    public FishDepth depth;     // 使用的鱼类深度
+    [Range(0,2)] public int poolIndex; // ItemPool 子池索引（0-2）
+}
+```
+
+### 槽位索引建议
+
+| 索引 | depth | poolIndex |
+|------|-------|-----------|
 | 0、1、2 | Depth1（浅层） | 0、1、2 |
 | 3、4、5 | Depth2（中层） | 0、1、2 |
 | 6、7、8 | Depth3（深层） | 0、1、2 |
 
----
-
-## CardPileSlot（槽位控制器）
-
-**路径**：`Assets/Script/FishingSystem/CardPileSlot.cs`  
-**命名空间**：`FishingSystem`  
-**接口**：`IPointerClickHandler`
-
-### 状态枚举
-
-```csharp
-enum PileState { Empty, FaceDown, FaceUp }
-```
-
-### Inspector 参数
-
-| 参数 | 说明 |
-|------|------|
-| `depth` | 槽位深度（FishDepth） |
-| `poolIndex` | 子池索引（0-2） |
-| `currentState` | 当前状态 |
-| `currentCard` | 当前显示的 FishCard |
-| `cardSpawnPoint` | 卡牌生成位置 |
-| `fishCardPrefab` | FishCard 预制体 |
-
 ### API
 
 ```csharp
-slot.Initialize(FishDepth depth, int poolIndex)  // 初始化槽位（由 FishingTablePanel 调用）
-// event Action<CardPileSlot> OnSlotClicked      // 槽位被点击时触发
-```
+// 游戏逻辑（供 CardPilePanel 调用）
+bool TryReveal(CardPile pile, FishData data)   // 检查体力≥1 → 扣体力 → TriggerRevealEffects()
+bool TryCapture(CardPile pile, FishData data)  // 检查体力≥staminaCost → 扣体力 → TriggerCaptureEffects()
+                                               //   → HandManager.AddCard() → pile.RemoveTopCard()
+bool CanPlayerAccessPile(CardPile pile)        // 检查玩家深度是否允许与该牌堆交互
 
-### 工作流
-
-```
-Initialize() → 状态 Empty
-玩家点击 → OnPointerClick → 触发 OnSlotClicked
-FishingTablePanel 接收 → ItemPool 抽牌 → 生成 FishCard
-状态：Empty → FaceDown → FaceUp
+// 多牌堆操作
+void RevealAllPiles()       // 翻开所有 FaceDown 牌堆（不消耗体力）
+void ResetAllPiles()        // 重新从 ItemPool 读取并重置所有牌堆卡序（ContextMenu 可调试）
+CardPile GetPile(int index) // 按索引获取 CardPile
+List<CardPile> GetAllPiles()// 获取所有非空 CardPile 列表
 ```
 
 ---
+
+## PileState 枚举
+
+定义位置已迁移至 `CardPile.cs`（`FishingSystem` 命名空间内）。
+
+```csharp
+public enum PileState { Empty, FaceDown, FaceUp }
+```
 
 ---
 
@@ -92,14 +116,13 @@ FishingTablePanel 接收 → ItemPool 抽牌 → 生成 FishCard
 ```
 CardPile（CardPile.cs + Image 透明遮罩，RaycastTarget=true）
 ├── ThicknessContainer（PileThicknessDisplay.cs）
-│   ├── EdgeLayer_1（Image，最近底部）
-│   ├── EdgeLayer_2
-│   └── EdgeLayer_N
+│   └── （边缘层由脚本自动生成，无需手动建）
 ├── CardBackContainer（FaceDown 时激活）
 │   ├── SmallCardBack（Image）
 │   ├── MediumCardBack（Image）
 │   └── LargeCardBack（Image）
-└── CardFaceContainer（FaceUp 时激活，FishCard 实例化到此）
+├── CardFaceContainer（FaceUp 时激活，FishCard 实例化到此）
+└── EmptyView（Empty 时激活，显示空牌堆图案）
 ```
 
 ### Inspector 参数
@@ -115,24 +138,19 @@ CardPile（CardPile.cs + Image 透明遮罩，RaycastTarget=true）
 | `thicknessDisplay` | PileThicknessDisplay 组件引用 |
 | `emptyView` | 空牌堆视觉容器（Empty 状态时显示） |
 | `cardPilePanelPrefab` | 点击牌堆时实例化的 CardPilePanel 预制体 |
-
-### 状态枚举（复用 PileState）
-
-```csharp
-enum PileState { Empty, FaceDown, FaceUp }
-```
+| `pileDepth` | 该牌堆深度等级（由 FishingTableManager 初始化时写入，也可在 Inspector 手动配置） |
 
 ### API
 
 ```csharp
-pile.SetCards(List<FishData> list)   // 注入卡序，自动进入 FaceDown；若列表为空则进入 Empty
+pile.SetCards(List<FishData> list)   // 注入卡序，自动进入 FaceDown；空列表则进入 Empty
 pile.Reveal()                        // FaceDown → FaceUp
 pile.RemoveTopCard()                 // 移除顶牌并刷新，返回 FishData；耗尽则进入 Empty
-pile.GetTopCard()                    // 只读取顶牌
+pile.GetTopCard()                    // 只读取顶牌（不移除）
 pile.CardCount                       // 当前张数
 pile.State                           // 当前 PileState
-// event Action<CardPile> OnPileClicked  // 点击时触发
-// protected virtual void OnPileBecameEmpty()  // 牌堆变空时触发（可在子类中重写）
+// event Action<CardPile> OnPileClicked          // 点击时触发（上层可订阅）
+// protected virtual void OnPileBecameEmpty()    // 牌堆变空时触发（可在子类中重写）
 ```
 
 ### 状态流转
@@ -154,7 +172,7 @@ RemoveTopCard()→ FaceDown（显示新顶牌卡背）
 
 ### 职责
 
-单击 `CardPile` 时由其实例化并显示，根据顶牌揭示状态切换 FaceDown / FaceUp 视图，提供揭示、捕获、取消三种操作。
+单击 `CardPile` 时由其实例化并显示，根据顶牌揭示状态切换 FaceDown / FaceUp 视图，提供揭示、捕获、取消三种操作。游戏逻辑（体力扣除、手牌添加）委托给 `FishingTableManager`。
 
 ### Inspector 参数
 
@@ -184,9 +202,9 @@ panel.Show(CardPile pile)   // 打开面板，由 CardPile.OnPointerClick 调用
 ```
 Show(pile)
   ├─ pile.State == FaceDown → ShowFaceDown() → 展示卡背 + 揭示按钮
-  │     揭示按钮点击 → TriggerRevealEffects() + pile.Reveal() → ShowFaceUp()
+  │     揭示按钮点击 → FishingTableManager.TryReveal() → pile.Reveal() → ShowFaceUp()
   └─ pile.State == FaceUp  → ShowFaceUp()  → 展示 FishCard + 捕获按钮
-        捕获按钮点击 → TriggerCaptureEffects() + ClosePanel()
+        捕获按钮点击 → FishingTableManager.TryCapture() → ClosePanel()
         取消按钮点击 → ClosePanel() → Destroy(gameObject)
 ```
 
@@ -195,7 +213,7 @@ Show(pile)
 **建议路径**：`Assets/Prefab/FishCardSystem/CardPilePanel.prefab`
 
 ```
-CardPilePanel               (RectTransform, Canvas[overrideSorting], CardPilePanel)
+CardPilePanel               (RectTransform, Canvas[overrideSorting=true, order=160], CardPilePanel)
 ├── Mask                    (Image 半透明遮罩，Button → 点击遮罩等同取消)
 └── PanelRoot               (RectTransform 居中内容区)
     ├── CardDisplayArea     (RectTransform)
@@ -209,7 +227,7 @@ CardPilePanel               (RectTransform, Canvas[overrideSorting], CardPilePan
         └── CaptureButton   (Button - FaceUp 时激活)
 ```
 
-> **注意**：FishCardHolder 的 `slotPrefab` 必须指向 `FishCardSlot` 预制体，`cardsToSpawn` 设为 1，使 Start() 时自动生成一个空槽供 AddCard() 使用。  
+> **注意**：FishCardHolder 的 `slotPrefab` 必须指向 `FishCardSlot` 预制体，`cardsToSpawn` 设为 1。  
 > 预制体完成后将其拖至每个 `CardPile` 组件的 `cardPilePanelPrefab` 字段。
 
 ---
@@ -237,37 +255,3 @@ CardPilePanel               (RectTransform, Canvas[overrideSorting], CardPilePan
 ```csharp
 display.UpdateThickness(int cardCount)  // 由 CardPile 自动调用
 ```
-
----
-
-## CardPileTest（牌堆测试初始化）
-
-**路径**：`Assets/Script/FishingSystem/CardPileTest.cs`  
-**命名空间**：`FishingSystem`
-
-测试脚本，从 `ItemPool` 取指定深度和子池的卡序注入 `CardPile`。
-
-### Inspector 参数
-
-| 参数 | 说明 |
-|------|------|
-| `targetPile` | 目标 CardPile |
-| `depth` | FishDepth（Depth1/2/3） |
-| `poolIndex` | 子池索引（0-2） |
-| `cardCountLimit` | 取卡上限，0 表示不限 |
-| `autoInitOnStart` | 是否 Start 时自动初始化 |
-
-### 调试方法
-
-```csharp
-test.InitializePile()   // 重新初始化
-test.DebugReveal()      // 翻开顶牌（等同 pile.Reveal()）
-test.DebugRemoveTop()   // 移除顶牌（等同 pile.RemoveTopCard()）
-```
-
----
-
-## RevealOverlayPanel（翻牌遮罩）
-
-**路径**：`Assets/Script/FishingSystem/RevealOverlayPanel.cs`  
-卡牌翻开时显示的遮罩动画面板，由 `FishingTablePanel` 控制显隐。

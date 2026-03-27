@@ -180,26 +180,6 @@ namespace ItemSystem
         }
 
         /// <summary>
-        /// 获取指定深度+子池索引的顶牌（只读，不移除）
-        /// </summary>
-        /// <param name="depth">深度</param>
-        /// <param name="poolIndex">子池索引（0-2）</param>
-        /// <returns>顶牌数据，如果牌堆为空返回null</returns>
-        public FishData PeekTopCard(FishDepth depth, int poolIndex)
-        {
-            if (!fragmentedFishPools.ContainsKey(depth))
-            {
-                return null;
-            }
-            
-            var pools = fragmentedFishPools[depth];
-            int safeIndex = Mathf.Abs(poolIndex) % pools.Count;
-            var targetPool = pools[safeIndex];
-            
-            return targetPool.Count > 0 ? targetPool[0] : null;
-        }
-
-        /// <summary>
         /// 列表洗牌算法 (Fisher-Yates)
         /// </summary>
         private void ShuffleList<T>(List<T> list)
@@ -600,6 +580,19 @@ namespace ItemSystem
         }
         
         /// <summary>
+        /// 获取指定类型的洗牌后牌堆引用（与 GetFragmentedPool 模式一致）
+        /// 调用方应做深拷贝后使用，以避免与 ItemPool 运行时状态耦合
+        /// </summary>
+        public List<ItemData> GetCategoryDeck(ItemCategory category)
+        {
+            if (categoryDecks.TryGetValue(category, out List<ItemData> deck))
+                return deck;
+
+            Debug.LogWarning($"[ItemPool] 未找到类别 {category} 的牌堆");
+            return new List<ItemData>();
+        }
+
+        /// <summary>
         /// 获取指定类型的所有物品
         /// </summary>
         public List<ItemData> GetItemsByCategory(ItemCategory category)
@@ -633,6 +626,16 @@ namespace ItemSystem
         public void ReloadAllItems()
         {
             LoadAllItems();
+        }
+
+        /// <summary>
+        /// 重新洗牌所有卡池（新游戏时由 DayManager 调用）
+        /// 内部调用 LoadAllItems 完成重新加载、洗牌、分池
+        /// </summary>
+        public void ReshuffleAll()
+        {
+            LoadAllItems();
+            Debug.Log("[ItemPool] 所有卡池已重新洗牌");
         }
         
         /// <summary>

@@ -1,9 +1,11 @@
+using System;
 using UnityEngine;
 
 namespace ItemSystem
 {
     /// <summary>
-    /// 装备管理器（基础版本）
+    /// 装备管理器
+    /// 管理鱼竿和渔具两个槽位的装备/卸下，触发被动效果注册/注销，并对外提供状态变化事件。
     /// </summary>
     public class EquipmentManager : MonoBehaviour
     {
@@ -23,7 +25,17 @@ namespace ItemSystem
                 return instance;
             }
         }
-        
+
+        #region 事件
+
+        /// <summary>装备成功时触发（包含新装备数据）</summary>
+        public event Action<EquipmentData> OnEquipped;
+
+        /// <summary>卸下装备时触发（包含被卸下的装备数据）</summary>
+        public event Action<EquipmentData> OnUnequipped;
+
+        #endregion
+
         [Header("装备槽位")]
         [SerializeField] private EquipmentData equippedRod;      // 鱼竿槽
         [SerializeField] private EquipmentData equippedGear;     // 渔具槽
@@ -54,28 +66,22 @@ namespace ItemSystem
             switch (equipment.slot)
             {
                 case EquipmentSlot.FishingRod:
-                    // 卸下旧鱼竿
                     if (equippedRod != null)
-                    {
                         Unequip(EquipmentSlot.FishingRod);
-                    }
-                    
-                    // 装备新鱼竿
+
                     equippedRod = equipment;
                     equippedRod.OnEquip();
+                    OnEquipped?.Invoke(equippedRod);
                     Debug.Log($"[EquipmentManager] 装备鱼竿：{equippedRod.itemName}");
                     return true;
-                
+
                 case EquipmentSlot.FishingGear:
-                    // 卸下旧渔具
                     if (equippedGear != null)
-                    {
                         Unequip(EquipmentSlot.FishingGear);
-                    }
-                    
-                    // 装备新渔具
+
                     equippedGear = equipment;
                     equippedGear.OnEquip();
+                    OnEquipped?.Invoke(equippedGear);
                     Debug.Log($"[EquipmentManager] 装备渔具：{equippedGear.itemName}");
                     return true;
                 
@@ -98,17 +104,19 @@ namespace ItemSystem
                         EquipmentData oldRod = equippedRod;
                         oldRod.OnUnequip();
                         equippedRod = null;
+                        OnUnequipped?.Invoke(oldRod);
                         Debug.Log($"[EquipmentManager] 卸下鱼竿：{oldRod.itemName}");
                         return oldRod;
                     }
                     break;
-                
+
                 case EquipmentSlot.FishingGear:
                     if (equippedGear != null)
                     {
                         EquipmentData oldGear = equippedGear;
                         oldGear.OnUnequip();
                         equippedGear = null;
+                        OnUnequipped?.Invoke(oldGear);
                         Debug.Log($"[EquipmentManager] 卸下渔具：{oldGear.itemName}");
                         return oldGear;
                     }

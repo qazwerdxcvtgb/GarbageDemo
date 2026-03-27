@@ -90,7 +90,7 @@ namespace FishingSystem
             for (int i = 0; i < layers.Count; i++)
             {
                 if (layers[i] != null)
-                    layers[i].gameObject.SetActive(i < visibleLayers);
+                    layers[i].gameObject.SetActive(i < (visibleLayers-1));
             }
         }
 

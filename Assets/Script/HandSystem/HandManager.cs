@@ -4,6 +4,7 @@
 /// 创建日期：2026-01-20
 /// </summary>
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using ItemSystem;
@@ -58,6 +59,12 @@ namespace HandSystem
         /// </summary>
         public event System.Action OnHandChanged;
 
+        /// <summary>
+        /// 新增卡牌事件（仅在 AddCard 时触发，携带具体卡牌数据供视觉层创建实例）
+        /// 触发顺序：OnHandChanged（先，槽位数量更新）→ OnCardAdded（后，视觉创建）
+        /// </summary>
+        public event System.Action<ItemData> OnCardAdded;
+
         #endregion
 
         #region 手牌管理方法
@@ -77,7 +84,28 @@ namespace HandSystem
             handCards.Add(card);
             Debug.Log($"[HandManager] 添加卡牌到手牌: {card.itemName}，当前手牌数量: {handCards.Count}");
 
-            // 触发手牌变化事件
+            // 先触发通用变化事件（HandPanelUI 借此更新槽位数量）
+            OnHandChanged?.Invoke();
+            // 再触发新增事件（HandPanelUI 借此创建视觉卡实例，此时新槽位已就绪）
+            OnCardAdded?.Invoke(card);
+        }
+
+        /// <summary>
+        /// 仅将卡牌数据加入手牌列表并通知槽位数量变化，不触发 OnCardAdded。
+        /// 用于视觉卡已存在的场景（如装备卡从装备槽归还手牌），避免重复创建视觉卡。
+        /// </summary>
+        public void AddCardData(ItemData card)
+        {
+            if (card == null)
+            {
+                Debug.LogWarning("[HandManager] 尝试添加空卡牌到手牌");
+                return;
+            }
+
+            handCards.Add(card);
+            Debug.Log($"[HandManager] 添加卡牌数据到手牌(无视觉): {card.itemName}，当前手牌数量: {handCards.Count}");
+
+            // 只通知槽位数量更新，不创建新视觉卡
             OnHandChanged?.Invoke();
         }
 

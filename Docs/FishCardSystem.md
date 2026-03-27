@@ -1,8 +1,7 @@
 # 鱼类卡牌系统
 
 > [← 返回索引](INDEX.md)  
-> 覆盖脚本：`FishCardSystem/` 下所有脚本  
-> 旧版详细文档：[参数说明](Archive/FishCardSystem%20参数与方法说明.md) · [Unity配置](Archive/FishCardSystem%20Unity配置指南.md)
+> 覆盖脚本：`Script/FishCardSystem/` 下所有脚本
 
 ---
 
@@ -24,14 +23,22 @@ CurveParameters（ScriptableObject）定义手牌弧线曲线
 
 | 脚本 | 路径 | 职责 |
 |------|------|------|
-| `FishCard` | `Core/FishCard.cs` | 逻辑卡：输入、状态、位置 |
+| `ItemCard` | `Core/ItemCard.cs` | 逻辑卡基类：输入、状态、位置；含 `isLocked` 锁定字段 |
+| `FishCard` | `Core/FishCard.cs` | 逻辑卡：鱼类数据绑定、视觉卡实例化 |
+| `TrashCard` | `Core/TrashCard.cs` | 逻辑卡：杂鱼数据绑定 |
+| `ConsumableCard` | `Core/ConsumableCard.cs` | 逻辑卡：消耗品数据绑定 |
+| `EquipmentCard` | `Core/EquipmentCard.cs` | 逻辑卡：装备数据绑定 |
 | `FishCardVisual` | `Visual/FishCardVisual.cs` | 视觉卡：动画、跟随、弧线 |
-| `FishCardFrontDisplay` | `Visual/FishCardFrontDisplay.cs` | 卡牌 UI 数据绑定 |
-| `FishCardHolder` | `Manager/FishCardHolder.cs` | 容器：槽位管理、拖拽排序、悬停压缩效果 |
-| `HandPanelUI` | `Manager/HandPanelUI.cs` | 手牌面板 UI 管理：图层、折叠/展开动画、槽位同步 |
+| `FishCardFrontDisplay` | `Visual/FishCardFrontDisplay.cs` | 卡牌 UI 数据绑定（鱼类） |
+| `TrashCardFrontDisplay` | `Visual/TrashCardFrontDisplay.cs` | 卡牌 UI 数据绑定（杂鱼） |
+| `ConsumableCardFrontDisplay` | `Visual/ConsumableCardFrontDisplay.cs` | 卡牌 UI 数据绑定（消耗品） |
+| `EquipmentCardFrontDisplay` | `Visual/EquipmentCardFrontDisplay.cs` | 卡牌 UI 数据绑定（装备） |
+| `CardContextMode` | `Core/CardContextMode.cs` | 枚举：卡牌上下文模式（Hand/Pile/Shop 等） |
+| `FishCardHolder` | `Manager/FishCardHolder.cs` | 容器：槽位管理、拖拽排序、悬停压缩；含 `CrossHolderRole` 字段，按角色自动注册到 CrossHolderSystem |
+| `CrossHolderSystem` | `Manager/CrossHolderSystem.cs` | 跨 Holder 拖拽全局单例：Source/Target 自动注册、阈值检测、主动归位 |
+| `HandPanelUI` | `Manager/HandPanelUI.cs` | 手牌面板 UI 管理：图层、折叠/展开、商店锁定支持 |
 | `VisualCardsHandler` | `Manager/VisualCardsHandler.cs` | 视觉卡全局注册管理 |
 | `CurveParameters` | `Data/CurveParameters.cs` | 弧线 ScriptableObject |
-| `CardSystemTester` | `CardSystemTester.cs` | 测试辅助：自动生成测试卡牌 |
 
 ---
 
@@ -171,9 +178,97 @@ FishCardVisual（110×165，无 Canvas）
 | 卡牌无法拖拽 | Image Raycast Target 未勾选 | 勾选 Raycast Target |
 | 卡牌无法交换位置 | FishCardSlot Tag 不是 `Slot` | 检查 Tag |
 | 弧线不生效 | `curve` 字段为空 | 拖入 CurveParameters 资源 |
+| 卡牌锁定后仍可拖拽 | `isLocked` 未设置为 true | 检查 `card.isLocked = true` 是否执行 |
+
+---
+
+## ICardSlot 接口
+
+槽位抽象接口，由所有可接受卡牌拖入的槽位实现（`ShopHangSlot`、`EquipmentSlotUI` 等）。`CrossHolderSystem` 通过此接口操作槽位，无需关心具体类型。
+
+```csharp
+bool IsOccupied { get; }
+ItemCard OccupiedCard { get; }
+bool CanAccept(ItemCard card);        // 类型校验（ShopHangSlot 只接受 FishData，EquipmentSlotUI 只接受对应类型装备）
+void AcceptCard(ItemCard card);       // 接管卡牌，调用方保证槽位已空
+void ReleaseCard();                   // 放弃卡牌，不销毁，由调用方接管
+RectTransform GetSlotRect();
+```
+
+---
+
+## ItemCard 锁定机制
+
+`ItemCard.isLocked = true` 时屏蔽以下所有输入：`OnPointerEnter / Exit / Down / Up / OnBeginDrag`  
+**注意**：槽位持有的卡牌现在不使用 `isLocked` 管理拖拽，而是通过 `CrossHolderSystem.RegisterSlotCard()` 注册拖拽监听；`isLocked` 仅用于手牌 UI 场景（防止误触消耗按钮等）。
+
+---
+
+## CrossHolderRole 枚举
+
+定义 `FishCardHolder` 在跨 Holder 拖拽系统中的角色：
+
+| 枚举值 | 说明 |
+|--------|------|
+| `None` | 不参与跨 Holder 拖拽（默认） |
+| `Source` | 可从此 Holder 拖出（手牌 Holder） |
+| `Target` | 可接受拖入（预留） |
+| `Both` | 双向（预留，暂未使用） |
+
+`FishCardHolder` 在 `Start()` 中自动向 `CrossHolderSystem` 注册（`role == Source`），在 `OnDestroy()` 中自动注销。  
+`AddCard` / `RemoveCard` 时同步更新 `CrossHolderSystem` 的卡牌订阅，无需外部手动调用。
+
+---
+
+## CrossHolderSystem（双向拖拽框架）
+
+全局跨 Holder 拖拽系统，挂在场景 Managers 节点上。支持三种交互场景：
+
+- **场景1**：手牌卡 → 空槽 → `OnCardDroppedToSlot`（`IsOccupied=false`）
+- **场景2**：手牌卡 → 已有卡的槽 → `OnCardDroppedToSlot`（`IsOccupied=true`，控制器执行替换）
+- **场景3**：槽位卡 → 手牌区域 → `OnCardEjectedToHand`；槽位卡落其他位置一律归回原槽
+
+```csharp
+// Source Holder 自动注册（由 FishCardHolder 调用）
+CrossHolderSystem.Instance.RegisterSource(FishCardHolder holder)
+CrossHolderSystem.Instance.UnregisterSource(FishCardHolder holder)
+CrossHolderSystem.Instance.SubscribeSourceCard(ItemCard card)
+CrossHolderSystem.Instance.UnsubscribeSourceCard(ItemCard card)
+
+// Target 槽位自动注册（由实现 ICardSlot 的组件在 OnEnable/OnDisable 调用）
+CrossHolderSystem.Instance.RegisterTarget(RectTransform rect, ICardSlot slot)
+CrossHolderSystem.Instance.UnregisterTarget(RectTransform rect)
+
+// 槽位卡注册（由槽位 AcceptCard/ReleaseCard 调用）
+CrossHolderSystem.Instance.RegisterSlotCard(ItemCard card, ICardSlot sourceSlot)
+CrossHolderSystem.Instance.UnregisterSlotCard(ItemCard card)
+
+// 手牌区域注册（由 HandPanelUI 在 Start/OnDestroy 调用）
+CrossHolderSystem.Instance.RegisterHandZone(RectTransform rect)
+CrossHolderSystem.Instance.UnregisterHandZone()
+
+// 事件
+CrossHolderSystem.Instance.OnCardDroppedToSlot   // UnityEvent<ItemCard, ICardSlot>（场景1、2）
+CrossHolderSystem.Instance.OnCardEjectedToHand   // UnityEvent<ItemCard, ICardSlot>（场景3）
+```
+
+**Inspector 配置**：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `yThreshold` | 1.5 | 触发跨 Holder 的 Y 轴偏移阈值（世界单位） |
+
+**激活机制**：`HasActiveTargets`（至少一个 Target 注册或 handZoneRect 不为空）时才处理拖拽，否则透明放行。
+
+---
+
+## 常见问题（补充）
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
 | 数据不显示 | FishCardFrontDisplay 引用未绑定 | 检查 FishCardVisual 中的 frontDisplay 及 TMP / Image 引用 |
 | 拖拽报 NullReferenceException | 相机 Tag 不是 `MainCamera` | 将相机 Tag 改为 `MainCamera` |
 | 拖拽坐标完全错乱 | Camera 为透视模式或 Canvas 非 World Space | 相机改 Orthographic Size=5，Canvas 改 World Space |
-| 拖拽后卡牌不回位 / 换序无效 | 卡牌未通过 `FishCardHolder.AddCard()` 注册 | 使用 `CardSystemTester` 或手动调用 `AddCard()` 注册卡牌 |
-| 视觉卡渲染层级混乱 | 视觉卡挂在 Canvas 下而非 VisualCardsHandler 下 | 确保场景中存在 `VisualCardsHandler`，`FishCard` 将优先挂载于此 |
+| 拖拽后卡牌不回位 / 换序无效 | 卡牌未通过 `FishCardHolder.AddCard()` 注册 | 手动调用 `AddCard()` 注册卡牌 |
+| 视觉卡渲染层级混乱 | 视觉卡挂在 Canvas 下而非 VisualCardsHandler 下 | 确保场景中存在 `VisualCardsHandler` |
 | AddCard 后事件无响应报空引用 | FishCard 事件在 `Start()` 中初始化（旧版本） | 确认使用最新版 FishCard.cs（事件在 `Awake()` 中初始化） |

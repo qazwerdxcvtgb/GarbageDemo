@@ -14,7 +14,7 @@
 ### 职责
 
 管理玩家手牌的**数据层**（`List<ItemData>`），不负责 UI 显示。  
-UI 由 `HandUIPanel` 订阅 `OnHandChanged` 事件后自行刷新。
+UI 由 `HandPanelUI`（FishCardSystem）订阅 `OnHandChanged` 事件后自行刷新。
 
 ### API
 
@@ -47,3 +47,30 @@ HandManager.Instance.RemoveCard(selectedFish);
 ```
 
 > **注意**：`GetHandCards()` 返回副本，直接修改不影响原始数据。
+
+---
+
+## 商店场景下的手牌行为
+
+商店打开时，`ShopPanel` 会锁定 `HandPanelUI` 的展开状态：
+
+- 调用 `HandPanelUI.LockExpanded()`：强制展开手牌，隐藏折叠按钮
+- 关闭商店时调用 `HandPanelUI.UnlockExpanded()`：恢复折叠权限和按钮
+
+售卖手牌流程（`ShopSellController`）：
+
+```
+FishCardHolder.RemoveCard(card)       → 解除 Holder 绑定
+Destroy(card.gameObject)              → 销毁逻辑卡（触发 FishCardVisual 销毁）
+HandManager.RemoveCard(cardData)      → 数据层移除 → OnHandChanged → SetSlotCount 收缩槽位
+CharacterState.ModifyGold(total)      → 结算金币
+```
+
+悬挂鱼牌流程（`ShopHangController`）：
+
+```
+ShopManager.TryHangFish(index, data) → 持久化存储
+HandManager.RemoveCard(data)          → 数据层移除 → OnHandChanged → 槽位收缩
+FishCardHolder.RemoveCard(card)       → 解除 Holder 绑定
+ShopHangSlot.HangCard(card)          → 卡牌归位到悬挂槽，isLocked = true
+```

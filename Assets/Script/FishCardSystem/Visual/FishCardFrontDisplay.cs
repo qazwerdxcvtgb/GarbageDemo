@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using ItemSystem;
+using System.Collections;
 
 namespace FishCardSystem
 {
@@ -21,6 +22,40 @@ namespace FishCardSystem
         [SerializeField] private TextMeshProUGUI typeText;
         [SerializeField] private TextMeshProUGUI sizeText;
         [SerializeField] private TextMeshProUGUI effectsText;
+
+        [Header("效果修改显示")]
+        [Tooltip("被动效果修改体力消耗时的文字颜色")]
+        [SerializeField] private Color modifiedCostColor = Color.green;
+
+        private Color normalCostColor;
+        private FishData currentData;
+        private bool effectDisplayEnabled = false;
+
+        private void Awake()
+        {
+            if (staminaCostText != null)
+                normalCostColor = staminaCostText.color;
+        }
+
+        private void OnDestroy()
+        {
+            if (effectDisplayEnabled && EffectBus.Instance != null)
+                EffectBus.Instance.OnFishingModifierChanged -= RefreshStaminaDisplay;
+        }
+
+        public void EnableEffectDisplay()
+        {
+            if (effectDisplayEnabled) return;
+            effectDisplayEnabled = true;
+            if (EffectBus.Instance != null)
+                EffectBus.Instance.OnFishingModifierChanged += RefreshStaminaDisplay;
+            if (currentData != null) UpdateStaminaCostDisplay(currentData.staminaCost);
+        }
+
+        private void RefreshStaminaDisplay()
+        {
+            if (currentData != null) UpdateStaminaCostDisplay(currentData.staminaCost);
+        }
 
         /// <summary>
         /// 更新所有显示内容
@@ -43,8 +78,8 @@ namespace FishCardSystem
             if (depthText != null)
                 depthText.text = GetDepthText(data.depth);
 
-            if (staminaCostText != null)
-                staminaCostText.text = data.staminaCost.ToString();
+            currentData = data;
+            UpdateStaminaCostDisplay(data.staminaCost);
 
             if (typeText != null)
                 typeText.text = GetTypeText(data.fishType);
@@ -65,6 +100,17 @@ namespace FishCardSystem
             {
                 fishIcon.enabled = false;
             }
+        }
+
+        private void UpdateStaminaCostDisplay(int baseCost)
+        {
+            if (staminaCostText == null) return;
+            int displayCost = effectDisplayEnabled && EffectBus.Instance != null
+                ? EffectBus.Instance.ProcessFishingCost(baseCost)
+                : baseCost;
+            bool isModified = displayCost != baseCost;
+            staminaCostText.text  = displayCost.ToString();
+            staminaCostText.color = isModified ? modifiedCostColor : normalCostColor;
         }
 
         /// <summary>
@@ -121,7 +167,7 @@ namespace FishCardSystem
             {
                 if (effect != null)
                 {
-                    descriptions.Add(effect.GetDescription());
+                    descriptions.Add(effect.GetFullDescription());
                 }
             }
 

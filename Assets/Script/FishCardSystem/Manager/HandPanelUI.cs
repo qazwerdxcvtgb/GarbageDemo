@@ -22,6 +22,10 @@ namespace FishCardSystem
         [Header("Holder 引用")]
         [SerializeField] private FishCardHolder cardHolder;
         [SerializeField] private RectTransform holderRect;
+        [SerializeField] private GameObject fishCardPrefab;
+        [SerializeField] private GameObject trashCardPrefab;
+        [SerializeField] private GameObject consumableCardPrefab;
+        [SerializeField] private GameObject equipmentCardPrefab;
 
         [Header("折叠/展开动画")]
         [SerializeField] private float hiddenOffsetY = -300f;
@@ -40,6 +44,10 @@ namespace FishCardSystem
         private bool isExpanded;
         private Vector2 expandedPosition;
         private bool isAnimating;
+        private bool lockedExpanded;
+
+        // 供外部系统（如商店）访问 Holder 引用
+        public FishCardHolder CardHolder => cardHolder;
 
         #endregion
 
@@ -78,7 +86,15 @@ namespace FishCardSystem
 
             // 订阅手牌变化事件
             if (HandManager.Instance != null)
+            {
                 HandManager.Instance.OnHandChanged += OnHandChanged;
+                HandManager.Instance.OnCardAdded   += OnCardAdded;
+            }
+
+            // 注册手牌区域为 CrossHolderSystem 的手牌归还区域
+            // holderRect 作为槽位卡"拖回手牌"的命中检测矩形
+            if (holderRect != null)
+                CrossHolderSystem.Instance?.RegisterHandZone(holderRect);
 
             // 初始化展开/收起状态
             isExpanded = startExpanded;
@@ -92,8 +108,12 @@ namespace FishCardSystem
         private void OnDestroy()
         {
             if (HandManager.Instance != null)
+            {
                 HandManager.Instance.OnHandChanged -= OnHandChanged;
+                HandManager.Instance.OnCardAdded   -= OnCardAdded;
+            }
 
+            CrossHolderSystem.Instance?.UnregisterHandZone();
             DOTween.Kill(holderRect);
         }
 
@@ -143,10 +163,32 @@ namespace FishCardSystem
         /// </summary>
         public void Toggle()
         {
+            if (lockedExpanded) return;
             if (isExpanded)
                 Hide();
             else
                 Show();
+        }
+
+        /// <summary>
+        /// 锁定展开状态（商店打开时调用）：强制展开、隐藏 ToggleButton、禁止折叠
+        /// </summary>
+        public void LockExpanded()
+        {
+            lockedExpanded = true;
+            if (toggleButton != null)
+                toggleButton.gameObject.SetActive(false);
+            Show();
+        }
+
+        /// <summary>
+        /// 解除锁定（商店关闭时调用）：恢复 ToggleButton 显示
+        /// </summary>
+        public void UnlockExpanded()
+        {
+            lockedExpanded = false;
+            if (toggleButton != null)
+                toggleButton.gameObject.SetActive(true);
         }
 
         #endregion
@@ -164,6 +206,57 @@ namespace FishCardSystem
             int count = HandManager.Instance.GetHandCount();
             cardHolder.SetSlotCount(count);
             RefreshToggleText();
+        }
+
+        /// <summary>
+        /// 当 HandManager 新增卡牌时，在 FishCardHolder 中实例化对应的视觉卡并自动展开手牌面板。
+        /// 此事件在 OnHandChanged（槽位扩容）之后触发，确保有空槽可用。
+        /// </summary>
+        private void OnCardAdded(ItemSystem.ItemData item)
+        {
+            if (cardHolder == null) return;
+
+            if (item is ItemSystem.FishData fishData && fishCardPrefab != null)
+            {
+                GameObject cardObj = Instantiate(fishCardPrefab);
+                FishCard fishCard  = cardObj.GetComponent<FishCard>();
+                if (fishCard == null) { Destroy(cardObj); return; }
+
+                fishCard.Initialize(fishData);
+                fishCard.SetContextMode(CardContextMode.Hand);
+                cardHolder.AddCard(fishCard);
+                Show();
+            }
+            else if (item is ItemSystem.TrashData trashData && trashCardPrefab != null)
+            {
+                GameObject cardObj  = Instantiate(trashCardPrefab);
+                TrashCard trashCard = cardObj.GetComponent<TrashCard>();
+                if (trashCard == null) { Destroy(cardObj); return; }
+
+                trashCard.Initialize(trashData);
+                cardHolder.AddCard(trashCard);
+                Show();
+            }
+            else if (item is ItemSystem.ConsumableData consumableData && consumableCardPrefab != null)
+            {
+                var cardObj       = Instantiate(consumableCardPrefab);
+                var consumableCard = cardObj.GetComponent<ConsumableCard>();
+                if (consumableCard == null) { Destroy(cardObj); return; }
+
+                consumableCard.Initialize(consumableData);
+                cardHolder.AddCard(consumableCard);
+                Show();
+            }
+            else if (item is ItemSystem.EquipmentData equipmentData && equipmentCardPrefab != null)
+            {
+                var cardObj       = Instantiate(equipmentCardPrefab);
+                var equipmentCard = cardObj.GetComponent<EquipmentCard>();
+                if (equipmentCard == null) { Destroy(cardObj); return; }
+
+                equipmentCard.Initialize(equipmentData);
+                cardHolder.AddCard(equipmentCard);
+                Show();
+            }
         }
 
         /// <summary>

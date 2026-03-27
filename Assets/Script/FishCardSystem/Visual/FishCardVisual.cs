@@ -6,8 +6,8 @@ using ItemSystem;
 namespace FishCardSystem
 {
     /// <summary>
-    /// 鱼类卡牌视觉控制器（视觉卡）
-    /// 负责：所有视觉效果和动画
+    /// 手牌卡牌视觉控制器（视觉卡，支持所有 ItemCard 子类）
+    /// 负责：所有视觉效果和动画；数据显示委托给对应的 FrontDisplay 组件
     /// </summary>
     public class FishCardVisual : MonoBehaviour
     {
@@ -16,9 +16,10 @@ namespace FishCardSystem
         private bool initialized = false;
 
         [Header("逻辑卡引用")]
-        public FishCard parentCard;
+        public ItemCard parentCard;
         private Transform cardTransform;
         private Canvas canvas;
+        private int homeSortingOrder = 0;
 
         [Header("视觉组件引用")]
         // [SerializeField] private Transform visualShadow;  // 阴影功能暂时禁用
@@ -36,6 +37,9 @@ namespace FishCardSystem
 
         [Header("显示模块")]
         [SerializeField] private FishCardFrontDisplay frontDisplay;
+        [SerializeField] private TrashCardFrontDisplay trashFrontDisplay;
+        [SerializeField] private ConsumableCardFrontDisplay consumableFrontDisplay;
+        [SerializeField] private EquipmentCardFrontDisplay equipmentFrontDisplay;
 
         [Header("跟随参数")]
         [SerializeField] private float followSpeed = 30f;
@@ -96,22 +100,14 @@ namespace FishCardSystem
         #region Initialization
 
         /// <summary>
-        /// 初始化视觉卡
+        /// 初始化视觉卡（支持所有 ItemCard 子类）
         /// </summary>
-        public void Initialize(FishCard target)
+        public void Initialize(ItemCard target)
         {
-            parentCard = target;
+            parentCard    = target;
             cardTransform = target.transform;
-            canvas = GetComponent<Canvas>();
-            
-            // 阴影功能暂时禁用
-            // if (visualShadow != null)
-            // {
-            //     shadowCanvas = visualShadow.GetComponent<Canvas>();
-            //     shadowDistance = visualShadow.localPosition;
-            // }
+            canvas        = GetComponent<Canvas>();
 
-            // 订阅逻辑卡的事件
             parentCard.PointerEnterEvent.AddListener(PointerEnter);
             parentCard.PointerExitEvent.AddListener(PointerExit);
             parentCard.BeginDragEvent.AddListener(BeginDrag);
@@ -120,25 +116,60 @@ namespace FishCardSystem
             parentCard.PointerUpEvent.AddListener(PointerUp);
             parentCard.SelectEvent.AddListener(Select);
 
+            parentCard.ActiveChangedEvent.AddListener(OnParentActiveChanged);
+
             initialized = true;
 
-            // 更新卡牌数据显示
             if (parentCard.cardData != null)
-            {
                 UpdateCardData(parentCard.cardData);
+        }
+
+        private void OnDestroy()
+        {
+            if (parentCard != null)
+                parentCard.ActiveChangedEvent.RemoveListener(OnParentActiveChanged);
+        }
+
+        /// <summary>
+        /// 响应逻辑卡的显隐变化。
+        /// 重新激活时先对齐逻辑卡位置再显示，防止第一帧从旧坐标开始 Lerp。
+        /// </summary>
+        private void OnParentActiveChanged(bool active)
+        {
+            if (active)
+            {
+                if (cardTransform != null)
+                    transform.position = cardTransform.position;
+                gameObject.SetActive(true);
+            }
+            else
+            {
+                gameObject.SetActive(false);
             }
         }
 
         /// <summary>
-        /// 更新卡牌数据显示
+        /// 启用正面体力消耗的效果修改显示（仅钓鱼上下文调用）
         /// </summary>
-        public void UpdateCardData(FishData data)
+        public void EnableFrontEffectDisplay()
         {
             if (frontDisplay != null)
-            {
-                frontDisplay.UpdateDisplay(data);
-            }
+                frontDisplay.EnableEffectDisplay();
+        }
 
+        /// <summary>
+        /// 更新卡牌数据显示，根据数据类型路由到对应 FrontDisplay
+        /// </summary>
+        public void UpdateCardData(ItemData data)
+        {
+            if (data is FishData fd && frontDisplay != null)
+                frontDisplay.UpdateDisplay(fd);
+            else if (data is TrashData td && trashFrontDisplay != null)
+                trashFrontDisplay.UpdateDisplay(td);
+            else if (data is ConsumableData cd && consumableFrontDisplay != null)
+                consumableFrontDisplay.UpdateDisplay(cd);
+            else if (data is EquipmentData ed && equipmentFrontDisplay != null)
+                equipmentFrontDisplay.UpdateDisplay(ed);
         }
 
         /// <summary>
@@ -212,7 +243,7 @@ namespace FishCardSystem
                                         rotationSpeed * Time.deltaTime);
 
             // 牌堆模式下禁用移动驱动的Z轴自转，平滑归零后提前返回
-            if (parentCard.IsPileMode)
+            if (parentCard.IsDisplayOnly)
             {
                 Vector3 pileRot = transform.eulerAngles;
                 pileRot.z = Mathf.LerpAngle(pileRot.z, 0f, rotationSpeed * Time.deltaTime);
@@ -259,7 +290,7 @@ namespace FishCardSystem
             }
 
             // Z轴倾斜（拖拽/牌堆模式/curve为null时归零，其余时由弧线曲线驱动）
-            float tiltZ = (parentCard.isDragging || parentCard.IsPileMode || curve == null) ? 0f : 
+            float tiltZ = (parentCard.isDragging || parentCard.IsDisplayOnly || curve == null) ? 0f : 
                          (curveRotationOffset * curve.rotationInfluence * parentCard.SiblingAmount());
 
             // 应用倾斜
@@ -336,7 +367,7 @@ namespace FishCardSystem
 
         #region Event Handlers
 
-        private void PointerEnter(FishCard card)
+        private void PointerEnter(ItemCard card)
         {
             if (!scaleAnimations)
                 return;
@@ -355,7 +386,7 @@ namespace FishCardSystem
             }
         }
 
-        private void PointerExit(FishCard card)
+        private void PointerExit(ItemCard card)
         {
             if (!scaleAnimations)
                 return;
@@ -366,7 +397,7 @@ namespace FishCardSystem
             }
         }
 
-        private void PointerDown(FishCard card)
+        private void PointerDown(ItemCard card)
         {
             if (!scaleAnimations)
                 return;
@@ -381,7 +412,7 @@ namespace FishCardSystem
             // }
         }
 
-        private void PointerUp(FishCard card, bool longPress)
+        private void PointerUp(ItemCard card, bool longPress)
         {
             if (!scaleAnimations)
                 return;
@@ -398,14 +429,12 @@ namespace FishCardSystem
             // }
         }
 
-        private void BeginDrag(FishCard card)
+        private void BeginDrag(ItemCard card)
         {
-            if (!scaleAnimations)
-                return;
+            if (scaleAnimations)
+                transform.DOScale(scaleOnSelect, scaleTransition).SetEase(scaleEase);
 
-            transform.DOScale(scaleOnSelect, scaleTransition).SetEase(scaleEase);
-
-            // 提升 Canvas 排序层级：手牌拖拽时置顶，确保始终显示在面板之上
+            // 拖拽时置顶（与 scaleAnimations 无关，始终执行）
             if (canvas != null)
             {
                 canvas.overrideSorting = true;
@@ -413,22 +442,41 @@ namespace FishCardSystem
             }
         }
 
-        private void EndDrag(FishCard card)
+        private void EndDrag(ItemCard card)
         {
-            if (!scaleAnimations)
-                return;
+            if (scaleAnimations)
+                transform.DOScale(1f, scaleTransition).SetEase(scaleEase);
 
-            transform.DOScale(1f, scaleTransition).SetEase(scaleEase);
+            // 恢复归属层级（与 scaleAnimations 无关，始终执行）
+            ApplyHomeSortingOrder();
+        }
 
-            // 恢复 Canvas 排序
-            if (canvas != null)
+        /// <summary>
+        /// 设置视觉卡的归属层级（面板 sortingOrder + 1）。
+        /// 传入 0 表示不覆盖，继承父容器（VisualCardsHandler = 190）。
+        /// </summary>
+        public void SetHomeSortingOrder(int order)
+        {
+            homeSortingOrder = order;
+            ApplyHomeSortingOrder();
+        }
+
+        private void ApplyHomeSortingOrder()
+        {
+            if (canvas == null) return;
+            if (homeSortingOrder > 0)
+            {
+                canvas.overrideSorting = true;
+                canvas.sortingOrder    = homeSortingOrder;
+            }
+            else
             {
                 canvas.overrideSorting = false;
-                canvas.sortingOrder = 0;
+                canvas.sortingOrder    = 0;
             }
         }
 
-        private void Select(FishCard card, bool state)
+        private void Select(ItemCard card, bool state)
         {
             DOTween.Kill(2);
 

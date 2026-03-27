@@ -1,7 +1,8 @@
-# 2DDemo 开发文档索引
+# 开发文档索引
 
-> 版本：2.0 | 更新：2026-02-25  
-> **使用说明**：先读本文件定位目标，再按链接跳转对应文档，每次只读需要的部分。
+> 更新：2026-04-03  
+> **使用说明**：新 agent 先读 [ProjectOverview](ProjectOverview.md) 了解项目全貌，再按本索引查找具体系统文档。  
+> **文档规范**：修改文档时务必遵循 [DocStandards](DocStandards.md)。
 
 ---
 
@@ -9,22 +10,25 @@
 
 | 我想了解… | 读这个文档 | 定位章节 |
 |-----------|-----------|---------|
+| 项目整体概况 | [ProjectOverview](ProjectOverview.md) | 全文 |
+| 文档编写规范 | [DocStandards](DocStandards.md) | 全文 |
+| 天数循环 / 每日结算 / 重置 | [DaySystem](DaySystem.md) | DayManager |
+| 声明阶段 / 游戏结束 | [DaySystem](DaySystem.md) | DeclarationPanel / GameOverPanel |
 | 全局疯狂值 / 空牌统计 | [CoreSystem](CoreSystem.md) | GameManager |
-| 玩家体力 / 金币 | [CoreSystem](CoreSystem.md) | CharacterState |
+| 玩家体力 / 金币 / 深度 | [CoreSystem](CoreSystem.md) | CharacterState |
 | 全局事件类型定义 | [CoreSystem](CoreSystem.md) | GameEvents |
-| 玩家移动 / 输入 | [PlayerSystem](PlayerSystem.md) | PlayerMove |
-| 场景交互点 | [PlayerSystem](PlayerSystem.md) | InteractionPoint |
 | 物品数据结构（鱼/装备/消耗品） | [ItemSystem](ItemSystem.md) | 数据类 |
 | 物品效果系统（EffectBase 等） | [ItemSystem](ItemSystem.md) | 效果系统 |
-| 物品池（抽取鱼/物品） | [ItemSystem](ItemSystem.md) | 管理器 |
+| 物品池（抽取鱼/物品） | [ItemSystem](ItemSystem.md) | ItemPool |
 | 手牌数据管理 | [HandSystem](HandSystem.md) | HandManager |
-| 鱼类卡牌脚本 API | [FishCardSystem](FishCardSystem.md) | 核心 API |
-| 鱼类卡牌 Unity 配置步骤 | [FishCardSystem](FishCardSystem.md) | Unity配置摘要 |
-| 钓鱼牌桌（9 槽位） | [FishingSystem](FishingSystem.md) | FishingTablePanel |
-| 手牌 UI 面板 | [UISystem](UISystem.md) | HandUIPanel |
-| 鱼店 UI 面板 | [UISystem](UISystem.md) | FishShopPanel |
-| 体力 / 金币 / 疯狂显示 | [UISystem](UISystem.md) | 状态显示UI |
-| 鱼类售价计算 | [Utils](Utils.md) | FishPriceCalculator |
+| 卡牌脚本 API / 拖拽 | [FishCardSystem](FishCardSystem.md) | 核心 API |
+| 卡牌 Unity 配置 | [FishCardSystem](FishCardSystem.md) | Unity 配置摘要 |
+| 跨 Holder 拖拽 / 锁定 | [FishCardSystem](FishCardSystem.md) | CrossHolderSystem |
+| 钓鱼牌桌（9 槽位） | [FishingSystem](FishingSystem.md) | FishingTableManager |
+| 体力 / 金币 / 疯狂显示 | [UISystem](UISystem.md) | 状态显示 UI |
+| 深度指示器 | [UISystem](UISystem.md) | DepthIndicatorUI |
+| 商店面板（售卖/购买/悬挂） | [ShopSystem](ShopSystem.md) | 全文 |
+| 装备面板 / 装备槽 | [ShopSystem](ShopSystem.md) | EquipmentPanel |
 
 ---
 
@@ -33,42 +37,30 @@
 | 文档 | 覆盖系统 | 主要单例 |
 |------|---------|---------|
 | [CoreSystem](CoreSystem.md) | 全局管理、角色状态、事件定义 | `GameManager.Instance` |
-| [PlayerSystem](PlayerSystem.md) | 玩家移动、交互点 | — |
-| [ItemSystem](ItemSystem.md) | 物品数据、效果系统、物品池、装备 | `ItemPool.Instance` |
+| [DaySystem](DaySystem.md) | 天数循环、声明选择、日终结算 | `DayManager.Instance` |
+| [FishCardSystem](FishCardSystem.md) | 卡牌实体、视觉、拖拽、槽位 | `CrossHolderSystem.Instance` |
+| [FishingSystem](FishingSystem.md) | 钓鱼牌桌、牌堆、翻牌交互 | `FishingTableManager.Instance` |
 | [HandSystem](HandSystem.md) | 手牌数据管理 | `HandManager.Instance` |
-| [FishCardSystem](FishCardSystem.md) | 鱼类卡牌视觉/交互/配置 | — |
-| [FishingSystem](FishingSystem.md) | 钓鱼牌桌、槽位、翻牌 | `FishingTablePanel.Instance` |
-| [UISystem](UISystem.md) | 所有 UI 面板与控件 | `HandUIPanel.Instance` · `FishShopPanel.Instance` |
-| [Utils](Utils.md) | 工具类 | — |
+| [ItemSystem](ItemSystem.md) | 物品数据、效果系统、物品池、装备管理 | `ItemPool.Instance`、`EquipmentManager.Instance` |
+| [ShopSystem](ShopSystem.md) | 商店买卖、悬挂鱼、装备面板 | `ShopManager.Instance`、`ShopPanel.Instance` |
+| [UISystem](UISystem.md) | HUD 状态显示 | — |
 
 ---
 
 ## 单例速查
 
 ```csharp
-GameManager.Instance          // 全局：疯狂值、交互事件
-HandManager.Instance          // 手牌数据
-ItemPool.Instance             // 物品池抽取
-FishingTablePanel.Instance    // 钓鱼牌桌
-HandUIPanel.Instance          // 手牌UI（懒加载）
-FishShopPanel.Instance        // 鱼店UI（懒加载）
-CharacterState                // 挂载在玩家对象上，非全局单例
-```
-
----
-
-## 系统依赖关系
-
-```
-GameManager ←── ItemSystem.Effects（ModifySanity / ModifyHealth）
-CharacterState ←── ItemSystem.Effects（ModifyHealth）
-
-ItemPool ──→ FishingTablePanel（按深度+池索引抽牌）
-FishingTablePanel ──→ HandManager（捕获后 AddCard）
-HandManager ──→ HandUIPanel（OnHandChanged 刷新显示）
-FishData ──→ FishCardSystem（视觉展示）
-FishShopPanel ──→ HandManager + CharacterState（售鱼 → 金币）
-FishPriceCalculator ←── GameManager.CurrentSanityLevel
+GameManager.Instance           // 全局：疯狂值、交互事件
+DayManager.Instance            // 天数循环（DontDestroyOnLoad）
+HandManager.Instance           // 手牌数据（DontDestroyOnLoad）
+ItemPool.Instance              // 物品池抽取（DontDestroyOnLoad）
+EquipmentManager.Instance      // 装备管理（DontDestroyOnLoad）
+FishingTableManager.Instance   // 钓鱼牌桌
+ShopManager.Instance           // 商店数据（DontDestroyOnLoad）
+ShopPanel.Instance             // 商店面板 UI
+CrossHolderSystem.Instance     // 跨 Holder 拖拽
+EquipmentPanel.Instance        // 装备面板 UI
+CharacterState                 // 挂载在玩家对象上，非全局单例
 ```
 
 ---
@@ -77,31 +69,57 @@ FishPriceCalculator ←── GameManager.CurrentSanityLevel
 
 ```
 Assets/Script/
-├── GameManager.cs
-├── CharacterState.cs
-├── GameEvents.cs
-├── PlayerMove.cs
-├── InputSystem.cs              （Unity自动生成，勿手动修改）
-├── InteractionPoint.cs
-├── InteractionPoint_1.cs
-├── InteractionPoint_FishShop.cs
-├── ItemSystem/
-│   ├── Data/         ItemData(基类) FishData ConsumableData TrashData EquipmentData ItemEnums
-│   ├── Effects/      EffectBase EffectTrigger EffectContext InstantEffect PassiveEffect + Implementations/
-│   └── Managers/     ItemPool EquipmentManager
-├── HandSystem/
-│   └── HandManager.cs
-├── FishCardSystem/
-│   ├── Core/         FishCard CardFaceController
-│   ├── Visual/       FishCardVisual FishCardFrontDisplay FishCardBackDisplay
-│   ├── Manager/      FishCardHolder VisualCardsHandler
-│   ├── Data/         CurveParameters
-│   └── Utility/      ExtensionMethods
-├── FishingSystem/
-│   ├── FishingTablePanel.cs
-│   ├── CardPileSlot.cs
-│   └── RevealOverlayPanel.cs
-├── UI/               HandUIPanel FishShopPanel HealthDisplayUI GoldDisplayUI SanityDisplayUI 等
-└── Utils/
-    └── FishPriceCalculator.cs
+├── Core/               (3)  GameManager, CharacterState, GameEvents
+├── DaySystem/          (5)  DayManager, DeclarationPanel, DayEndPanel, GameOverPanel, DayDisplayUI
+├── FishCardSystem/     (18)
+│   ├── Core/           (6)  ItemCard, FishCard, TrashCard, ConsumableCard, EquipmentCard, CardContextMode
+│   ├── Data/           (1)  CurveParameters
+│   ├── Manager/        (5)  CrossHolderSystem, FishCardHolder, HandPanelUI, ICardSlot, VisualCardsHandler
+│   ├── Utility/        (1)  ExtensionMethods
+│   └── Visual/         (5)  FishCardVisual, FishCardFrontDisplay, TrashCardFrontDisplay,
+│                             ConsumableCardFrontDisplay, EquipmentCardFrontDisplay
+├── FishingSystem/      (4)  FishingTableManager, CardPile, CardPilePanel, PileThicknessDisplay
+├── HandSystem/         (1)  HandManager
+├── ItemSystem/         (22)
+│   ├── Data/           (7)  ItemData, FishData, TrashData, ConsumableData, EquipmentData,
+│   │                         ItemEnums, ItemEnumsExtensions
+│   ├── Editor/         (1)  EffectBaseDrawer
+│   ├── Effects/        (6)  EffectBase, EffectBus, EffectContext, EffectData, EffectTrigger, PassiveEffect
+│   │   └── Implementations/ (6)  Effect_AddHealth, Effect_AddRandomHealth, Effect_DrawCards,
+│   │                              Effect_FishingStaminaDiscount, Effect_ModifySanity,
+│   │                              Effect_RandomHealthOrSanity
+│   └── Managers/       (2)  ItemPool, EquipmentManager
+├── ShopSystem/         (9)  ShopManager, ShopPanel, ShopSellController, ShopBuyController,
+│                             ShopEquipmentController, ShopHangController, ShopHangSlot,
+│                             EquipmentPanel, EquipmentSlotUI
+├── UI/                 (4)  HealthDisplayUI, GoldDisplayUI, SanityDisplayUI, DepthIndicatorUI
+├── Test/               (1)  CardSystemTester（从 Resources 加载物品数据的测试工具）
+└── Abandoned/          (16) 废弃脚本（已标注 [Obsolete]，不再使用）
+```
+
+---
+
+## 系统依赖关系
+
+```
+DayManager ──→ CharacterState（体力恢复、深度回退）
+DayManager ──→ FishingTableManager（丢弃揭示牌）
+DayManager ──→ ShopPanel（声明阶段开商店）
+DayManager ──→ ItemPool / HandManager / GameManager / ShopManager（重置）
+
+GameManager ←── ItemSystem.Effects（ModifySanity）
+CharacterState ←── ItemSystem.Effects（ModifyHealth）
+
+ItemPool ──→ FishingTableManager（按深度抽牌）
+ItemPool ──→ ShopManager（消耗品/装备牌序）
+FishingTableManager ──→ HandManager（捕获后 AddCard）
+HandManager ──→ HandPanelUI（OnHandChanged 刷新）
+
+ShopPanel ──→ ShopSellController + ShopBuyController + ShopHangController
+ShopSellController ──→ HandManager + CharacterState
+ShopHangController ──→ ShopManager + HandManager + CrossHolderSystem
+EquipmentPanel ──→ EquipmentManager + CrossHolderSystem
+
+FishCardSystem ──→ ItemSystem（数据类型）
+UISystem ──→ Core（事件订阅）
 ```

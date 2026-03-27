@@ -74,9 +74,8 @@ namespace ItemSystem
         {
             var effectDescs = effects
                 .Where(e => e != null)
-                .GroupBy(e => e.trigger)
-                .Select(g => $"[{g.Key}] {string.Join(", ", g.Select(e => e.GetDescription()))}");
-            
+                .Select(e => e.GetFullDescription());
+
             return $"【{itemName}】\n" +
                    $"深度: {depth.ToChineseText()}\n" +
                    $"体积: {size.ToChineseText()}\n" +

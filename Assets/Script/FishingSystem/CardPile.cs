@@ -8,6 +8,16 @@ using FishCardSystem;
 namespace FishingSystem
 {
     /// <summary>
+    /// 牌堆状态
+    /// </summary>
+    public enum PileState
+    {
+        Empty,      // 空牌堆
+        FaceDown,   // 卡背朝上（未翻开）
+        FaceUp      // 正面朝上（已翻开）
+    }
+
+    /// <summary>
     /// 独立牌堆预制体控制器
     /// 自持卡序，管理 FaceDown/FaceUp/Empty 三种显示状态
     /// 交互通过 OnPileClicked 事件上报，不包含游戏逻辑
@@ -37,6 +47,10 @@ namespace FishingSystem
         [Header("面板")]
         [SerializeField] private GameObject cardPilePanelPrefab;
 
+        [Header("深度配置")]
+        [Tooltip("该牌堆的深度等级，玩家深度需 >= 此值才能交互")]
+        [SerializeField] private FishDepth pileDepth = FishDepth.Depth1;
+
         [Header("状态（只读调试）")]
         [SerializeField] private PileState currentState = PileState.Empty;
 
@@ -65,9 +79,20 @@ namespace FishingSystem
         /// <summary>当前牌堆张数</summary>
         public int CardCount => cards.Count;
 
+        /// <summary>该牌堆的深度等级</summary>
+        public FishDepth PileDepth => pileDepth;
+
         #endregion
 
         #region Public API
+
+        /// <summary>
+        /// 设置牌堆深度等级（由 FishingTableManager 在初始化时调用）
+        /// </summary>
+        public void SetDepth(FishDepth depth)
+        {
+            pileDepth = depth;
+        }
 
         /// <summary>
         /// 注入卡序，初始化牌堆（自动设为 FaceDown）
@@ -181,7 +206,7 @@ namespace FishingSystem
                 // 视觉卡锚定在牌堆内部，不进入 VisualCardsHandler，保证层级在面板之下
                 currentDisplayCard.visualParentOverride = cardFaceContainer;
                 currentDisplayCard.Initialize(top);
-                currentDisplayCard.SetPileMode(true);
+                currentDisplayCard.SetContextMode(CardContextMode.Pile);
             }
         }
 
@@ -223,6 +248,13 @@ namespace FishingSystem
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            // 玩家深度不足时拦截点击，不触发任何交互
+            if (FishingTableManager.Instance != null && !FishingTableManager.Instance.CanPlayerAccessPile(this))
+            {
+                Debug.Log($"[CardPile] 玩家深度不足，无法与深度 {pileDepth} 的牌堆交互");
+                return;
+            }
+
             OnPileClicked?.Invoke(this);
 
             // 若配置了交互面板预制体且牌堆非空，则实例化面板并显示
