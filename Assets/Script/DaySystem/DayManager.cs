@@ -110,11 +110,39 @@ namespace DaySystem
         {
             if (Instance != null && Instance != this)
             {
+                // 场景重载后，将新场景中的引用移交给持久实例，再销毁自身
+                Instance.ApplySceneReferences(
+                    declarationPanel, dayEndPanel, gameOverPanel,
+                    nextDayButton, nextDayButtonText, playerState);
                 Destroy(gameObject);
                 return;
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+        }
+
+        /// <summary>
+        /// 场景重载后，由新场景的 DayManager 副本调用，将新场景中的所有引用更新到持久实例
+        /// </summary>
+        private void ApplySceneReferences(
+            DeclarationPanel dp, DayEndPanel dep, GameOverPanel gop,
+            Button btn, TextMeshProUGUI btnText, CharacterState state)
+        {
+            declarationPanel = dp;
+            dayEndPanel = dep;
+            gameOverPanel = gop;
+            playerState = state;
+
+            // 从旧按钮移除监听，绑定到新按钮
+            if (nextDayButton != null)
+                nextDayButton.onClick.RemoveListener(OnNextDayClicked);
+            nextDayButton = btn;
+            nextDayButtonText = btnText;
+            if (nextDayButton != null)
+                nextDayButton.onClick.AddListener(OnNextDayClicked);
+
+            if (showDebugInfo)
+                Debug.Log("[DayManager] 场景引用已更新（场景重载后移交）");
         }
 
         private void Start()
