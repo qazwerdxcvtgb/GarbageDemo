@@ -265,7 +265,7 @@ namespace DaySystem
         }
 
         /// <summary>
-        /// 执行刷新阶段：恢复体力满值，然后进入声明阶段
+        /// 执行刷新阶段：恢复体力满值，然后进入声明阶段（D1 自动跳过声明和装备准备）
         /// </summary>
         private void ExecuteRefreshPhase()
         {
@@ -278,7 +278,27 @@ namespace DaySystem
                     Debug.Log($"[DayManager] 体力已恢复满值: {playerState.CurrentHealth}/{playerState.MaxHealth}");
             }
 
-            EnterDeclarationPhase();
+            ItemSystem.EffectBus.Instance.NotifyDayRefreshCompleted();
+
+            if (currentDay == 1)
+                EnterFishingDirectly();
+            else
+                EnterDeclarationPhase();
+        }
+
+        /// <summary>
+        /// D1 专用：跳过声明和装备准备，直接进入钓鱼行动阶段
+        /// </summary>
+        private void EnterFishingDirectly()
+        {
+            currentAction = DayAction.Fishing;
+            SetPhase(GamePhase.Action);
+
+            UpdateNextDayButtonText();
+            SetNextDayButtonVisible(true);
+
+            if (showDebugInfo)
+                Debug.Log("[DayManager] D1 自动跳过声明和装备准备，直接进入钓鱼");
         }
 
         /// <summary>
@@ -318,6 +338,9 @@ namespace DaySystem
             }
             else
             {
+                if (EquipmentPanel.Instance != null)
+                    EquipmentPanel.Instance.OpenPanelForFishing();
+
                 if (showDebugInfo)
                     Debug.Log($"[DayManager] 玩家选择去钓鱼");
             }
@@ -405,9 +428,9 @@ namespace DaySystem
         /// </summary>
         private void AddTrashCardToHand()
         {
-            if (ItemPool.Instance == null || HandManager.Instance == null) return;
+            if (ShopManager.Instance == null || HandManager.Instance == null) return;
 
-            ItemData trash = ItemPool.Instance.DrawItem(ItemCategory.Trash);
+            TrashData trash = ShopManager.Instance.DrawTrash();
             if (trash != null)
             {
                 HandManager.Instance.AddCard(trash);

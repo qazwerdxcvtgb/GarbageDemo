@@ -283,7 +283,7 @@ namespace FishCardSystem
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            if (isLocked || IsDisplayOnly || Camera.main == null) return;
+            if (isLocked || cardContextMode == CardContextMode.Pile || Camera.main == null) return;
 
             BeginDragEvent.Invoke(this);
 

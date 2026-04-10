@@ -24,6 +24,13 @@ namespace ItemSystem
         public abstract void Execute(EffectContext context);
         
         /// <summary>
+        /// 检查效果是否可以在当前条件下执行（供 CanUse 预检使用）
+        /// 子类可 override 以实现运行时条件检查
+        /// </summary>
+        public virtual (bool canUse, string reason) CanExecute(EffectContext context)
+            => (true, null);
+
+        /// <summary>
         /// 获取效果描述（纯效果文本，不含触发时机前缀）
         /// </summary>
         public virtual string GetDescription() => DisplayName;

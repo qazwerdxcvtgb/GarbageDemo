@@ -18,6 +18,7 @@ MonoBehaviour:
   value: 0
   weight: 1
   category: 1
+  allowedUseContext: -1
   effects:
   - rid: 9178111255957733377
   references:

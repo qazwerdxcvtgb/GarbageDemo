@@ -12,19 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12f08f989035a9a4ea966807f77e1cd4, type: 3}
   m_Name: "\u9C7C 2"
   m_EditorClassIdentifier: 
-  itemName: "\u9C7C2"
+  itemName: "\u9C7C2 "
   icon: {fileID: 0}
   description: 
   value: 0
   weight: 1
   category: 1
+  allowedUseContext: 1
   effects:
-  - rid: 9178111255957733376
+  - rid: 2986597071065186319
   references:
     version: 2
     RefIds:
-    - rid: 9178111255957733376
-      type: {class: Effect_AddHealth, ns: ItemSystem, asm: Assembly-CSharp}
+    - rid: 2986597071065186319
+      type: {class: Effect_NextFishDiscount, ns: ItemSystem, asm: Assembly-CSharp}
       data:
         trigger: 2
-        amount: 1
+        reduction: 1

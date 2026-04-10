@@ -1,7 +1,7 @@
 # 钓鱼系统
 
 > [← 返回索引](INDEX.md)  
-> 覆盖脚本：`FishingSystem/FishingTableManager.cs` · `FishingSystem/CardPile.cs` · `FishingSystem/CardPilePanel.cs` · `FishingSystem/PileThicknessDisplay.cs`
+> 覆盖脚本：`FishingSystem/FishingTableManager.cs` · `FishingSystem/CardPile.cs` · `FishingSystem/CardPilePanel.cs` · `FishingSystem/PileThicknessDisplay.cs` · `FishingSystem/PeekPileHandler.cs`
 
 ---
 
@@ -255,3 +255,63 @@ CardPilePanel               (RectTransform, Canvas[overrideSorting=true, order=1
 ```csharp
 display.UpdateThickness(int cardCount)  // 由 CardPile 自动调用
 ```
+
+---
+
+## PeekPileHandler（偷看牌堆流程管理器）
+
+**路径**：`Assets/Script/FishingSystem/PeekPileHandler.cs`  
+**模式**：场景级单例 `PeekPileHandler.Instance`  
+**命名空间**：`FishingSystem`
+
+### 职责
+
+管理偷看效果的完整 UI 流程：锁定面板 → 展示偷看结果 → 恢复。
+
+### PeekMode 枚举
+
+| 值 | 说明 |
+|----|------|
+| `Single` | 玩家选择一个牌堆，偷看顶部 N 张未揭示的牌 |
+| `Row` | 玩家选择一个牌堆，偷看同行（同深度）3 个牌堆各 1 张未揭示顶牌 |
+| `Column` | 玩家选择一个牌堆，偷看同列（同序号）3 个牌堆各 1 张未揭示顶牌 |
+| `All` | 直接在所有 9 个牌堆上方叠加浮层，展示各堆第一张未揭示的牌 |
+
+### Inspector 参数
+
+| 参数 | 说明 |
+|------|------|
+| `handPanelUI` | HandPanelUI 引用（偷看时收起手牌栏） |
+| `selectionPanelPrefab` | CardSelectionPanel 预制体（Single/Row/Column 模式用） |
+| `promptRoot` | 提示 UI 根节点（Single/Row/Column 模式显示选择提示） |
+| `promptText` | 提示文本 TMP 组件 |
+| `fishCardPrefab` | FishCard 预制体（All 模式用于创建浮层卡牌） |
+| `exitPeekButton` | 退出偷看按钮（All 模式专用，默认隐藏） |
+| `overlaySortingOrder` | 浮层 Canvas 排序层级（默认 165，高于牌堆低于手牌栏） |
+
+### API
+
+```csharp
+handler.StartPeek(int count, PeekMode mode)  // 开始偷看流程
+handler.IsPeeking                             // 是否正在偷看中（只读）
+```
+
+### All 模式流程
+
+```
+Effect_PeekAllPiles.Execute()
+  → StartPeek(1, PeekMode.All)
+    → 锁定手牌栏/装备栏
+    → ClickInterceptor = 空操作（拦截牌堆点击，阻止 CardPilePanel 弹出）
+    → 遍历 9 堆，各调用 PeekTopCards(1, skipRevealed: true)
+    → 有未揭示牌的堆：实例化 FishCard 浮层叠加到牌堆上方
+    → 显示退出按钮
+
+退出按钮点击
+  → 销毁所有浮层 → 清除 ClickInterceptor → 解锁手牌栏/装备栏 → 隐藏退出按钮
+```
+
+### 预制体搭建说明（退出按钮）
+
+在 `PeekPileHandler` 所在 Canvas 下添加退出按钮节点，将 Button 组件拖至 `exitPeekButton` 字段。按钮事件由代码自动绑定，无需 Inspector 手动配置 onClick。  
+退出按钮在 Awake 时自动隐藏，仅 All 模式偷看期间激活。

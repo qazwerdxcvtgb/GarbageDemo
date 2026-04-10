@@ -20,8 +20,12 @@ public class CharacterState : MonoBehaviour
     [Tooltip("体力值最大值")]
     [SerializeField] private int maxHealth = 10;
     
-    [Tooltip("当前体力值")]
+    [Tooltip("当前基础体力值")]
     [SerializeField] private int currentHealth;
+    
+    [Header("装备体力（临时，每日刷新，不可通过普通治疗恢复）")]
+    [Tooltip("装备提供的临时体力，受伤时优先扣除")]
+    [SerializeField] private int bonusHealth = 0;
     
     [Header("金币设置")]
     [Tooltip("当前金币数量")]
@@ -62,6 +66,9 @@ public class CharacterState : MonoBehaviour
     [Tooltip("玩家深度变化时触发（参数：新的深度等级）")]
     public FishDepthChangedEvent OnDepthChanged;
     
+    [Tooltip("装备临时体力变化时触发（参数：新的装备体力值）")]
+    public IntValueChangedEvent OnBonusHealthChanged;
+    
     #endregion
     
     #region 属性访问器
@@ -89,22 +96,32 @@ public class CharacterState : MonoBehaviour
     }
     
     /// <summary>
-    /// 当前体力值（属性）
+    /// 当前体力值（返回 base + bonus 总体力，外部代码无需区分）
+    /// setter 仅操作基础体力，用于 RestoreFullHealth / MaxHealth 调整等
     /// </summary>
     public int CurrentHealth
     {
-        get => currentHealth;
+        get => currentHealth + bonusHealth;
         set
         {
-            // 限制在0到最大值之间
-            value = Mathf.Clamp(value, 0, maxHealth);
-            if (currentHealth != value)
+            int clamped = Mathf.Clamp(value, 0, maxHealth);
+            if (currentHealth != clamped)
             {
-                currentHealth = value;
-                OnHealthChanged?.Invoke(currentHealth);
+                currentHealth = clamped;
+                OnHealthChanged?.Invoke(currentHealth + bonusHealth);
             }
         }
     }
+    
+    /// <summary>
+    /// 基础体力值（只读，不含装备临时体力）
+    /// </summary>
+    public int BaseHealth => currentHealth;
+    
+    /// <summary>
+    /// 装备临时体力值（只读）
+    /// </summary>
+    public int BonusHealth => bonusHealth;
     
     /// <summary>
     /// 金币数量（属性）
@@ -161,6 +178,7 @@ public class CharacterState : MonoBehaviour
         if (OnMaxHealthChanged == null) OnMaxHealthChanged = new IntValueChangedEvent();
         if (OnGoldChanged == null) OnGoldChanged = new IntValueChangedEvent();
         if (OnDepthChanged == null) OnDepthChanged = new FishDepthChangedEvent();
+        if (OnBonusHealthChanged == null) OnBonusHealthChanged = new IntValueChangedEvent();
     }
     
     #endregion
@@ -168,13 +186,35 @@ public class CharacterState : MonoBehaviour
     #region 公共方法
     
     /// <summary>
-    /// 修改体力值（增加或减少）
+    /// 修改体力值（增加或减少）。
+    /// 受伤（amount 小于 0）：优先从装备临时体力扣除，不足部分再扣基础体力。
+    /// 治疗（amount 大于 0）：仅恢复基础体力，上限为 maxHealth，不影响装备临时体力。
     /// </summary>
     /// <param name="amount">变化量（正数为增加，负数为减少）</param>
     public void ModifyHealth(int amount)
     {
-        CurrentHealth += amount;
-        Debug.Log($"[CharacterState] 体力值变化: {amount:+#;-#;0}，当前体力: {currentHealth}/{maxHealth}");
+        int oldTotal = currentHealth + bonusHealth;
+
+        if (amount < 0)
+        {
+            int damage = -amount;
+            int bonusDmg = Mathf.Min(damage, bonusHealth);
+            bonusHealth -= bonusDmg;
+            int baseDmg = damage - bonusDmg;
+            currentHealth = Mathf.Max(0, currentHealth - baseDmg);
+
+            if (bonusDmg > 0) OnBonusHealthChanged?.Invoke(bonusHealth);
+        }
+        else if (amount > 0)
+        {
+            currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
+        }
+
+        int newTotal = currentHealth + bonusHealth;
+        if (newTotal != oldTotal)
+            OnHealthChanged?.Invoke(newTotal);
+
+        Debug.Log($"[CharacterState] 体力值变化: {amount:+#;-#;0}，当前体力: {newTotal}（基础{currentHealth}/{maxHealth} + 装备{bonusHealth}）");
     }
     
     /// <summary>
@@ -198,12 +238,28 @@ public class CharacterState : MonoBehaviour
     }
     
     /// <summary>
-    /// 恢复满体力
+    /// 恢复满体力（基础体力恢复至上限，装备临时体力清零）
     /// </summary>
     public void RestoreFullHealth()
     {
+        SetBonusHealth(0);
         CurrentHealth = maxHealth;
-        Debug.Log($"[CharacterState] 体力已恢复满值: {currentHealth}/{maxHealth}");
+        Debug.Log($"[CharacterState] 体力已恢复满值: {currentHealth}/{maxHealth}，装备体力已清零");
+    }
+    
+    /// <summary>
+    /// 设置装备临时体力值（每日刷新时由装备被动效果调用）
+    /// </summary>
+    /// <param name="value">装备体力值（负值会被截断为 0）</param>
+    public void SetBonusHealth(int value)
+    {
+        int newBonus = Mathf.Max(0, value);
+        if (bonusHealth != newBonus)
+        {
+            bonusHealth = newBonus;
+            OnBonusHealthChanged?.Invoke(bonusHealth);
+            OnHealthChanged?.Invoke(currentHealth + bonusHealth);
+        }
     }
     
     /// <summary>
@@ -237,21 +293,21 @@ public class CharacterState : MonoBehaviour
     }
     
     /// <summary>
-    /// 检查是否体力已满
+    /// 检查基础体力是否已满（不含装备临时体力）
     /// </summary>
-    /// <returns>体力是否已满</returns>
+    /// <returns>基础体力是否已满</returns>
     public bool IsHealthFull()
     {
         return currentHealth >= maxHealth;
     }
     
     /// <summary>
-    /// 检查角色是否已死亡（体力为0）
+    /// 检查角色是否已死亡（总体力为0）
     /// </summary>
     /// <returns>是否死亡</returns>
     public bool IsDead()
     {
-        return currentHealth <= 0;
+        return (currentHealth + bonusHealth) <= 0;
     }
     
     #endregion
@@ -264,11 +320,12 @@ public class CharacterState : MonoBehaviour
     /// </summary>
     public void ResetState()
     {
+        bonusHealth = 0;
         MaxHealth = initialMaxHealth;
         CurrentHealth = initialMaxHealth;
         GoldAmount = 0;
         CurrentDepth = FishDepth.Depth1;
-        Debug.Log($"[CharacterState] 角色状态已重置: 体力={currentHealth}/{maxHealth}, 金币={goldAmount}, 深度={currentDepth}");
+        Debug.Log($"[CharacterState] 角色状态已重置: 体力={currentHealth}/{maxHealth}, 装备体力={bonusHealth}, 金币={goldAmount}, 深度={currentDepth}");
     }
 
     #endregion
@@ -281,7 +338,7 @@ public class CharacterState : MonoBehaviour
     public void DebugPrintState()
     {
         Debug.Log($"===== 角色状态信息 =====");
-        Debug.Log($"体力: {currentHealth}/{maxHealth}");
+        Debug.Log($"体力: {currentHealth + bonusHealth}（基础{currentHealth}/{maxHealth} + 装备{bonusHealth}）");
         Debug.Log($"金币: {goldAmount}");
         Debug.Log($"深度: {currentDepth}");
         Debug.Log($"========================");

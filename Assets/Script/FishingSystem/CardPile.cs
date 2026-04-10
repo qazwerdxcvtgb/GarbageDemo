@@ -82,6 +82,16 @@ namespace FishingSystem
         /// <summary>该牌堆的深度等级</summary>
         public FishDepth PileDepth => pileDepth;
 
+        /// <summary>未揭示的卡牌数量（FaceUp 状态下排除已揭示的顶牌）</summary>
+        public int UnrevealedCardCount =>
+            currentState == PileState.FaceUp ? Mathf.Max(0, cards.Count - 1) : cards.Count;
+
+        /// <summary>
+        /// 静态点击拦截器。非 null 时接管 OnPointerClick，跳过深度检查和默认面板。
+        /// 使用完毕后调用方须置 null 恢复正常行为。
+        /// </summary>
+        public static Action<CardPile> ClickInterceptor;
+
         #endregion
 
         #region Public API
@@ -141,6 +151,54 @@ namespace FishingSystem
             RefreshDisplay();
 
             return removed;
+        }
+
+        /// <summary>
+        /// 从顶部移除并返回最多 count 张卡牌。
+        /// 牌堆不足时返回实际可用数量。操作完成后自动更新状态和刷新显示。
+        /// </summary>
+        public List<FishData> DrawTopCards(int count)
+        {
+            int actual = Mathf.Min(count, cards.Count);
+            var result = new List<FishData>(actual);
+            for (int i = 0; i < actual; i++)
+            {
+                result.Add(cards[0]);
+                cards.RemoveAt(0);
+            }
+
+            currentState = cards.Count > 0 ? PileState.FaceDown : PileState.Empty;
+            if (currentState == PileState.Empty) OnPileBecameEmpty();
+            RefreshDisplay();
+
+            return result;
+        }
+
+        /// <summary>
+        /// 将卡牌列表插入牌堆顶部（保持传入顺序）。
+        /// 例如传入 [A, B, C]，结果牌堆顶部为 A, B, C, ...原有牌...
+        /// 操作完成后自动更新状态和刷新显示。
+        /// </summary>
+        public void InsertCardsAtTop(List<FishData> newCards)
+        {
+            if (newCards == null || newCards.Count == 0) return;
+
+            cards.InsertRange(0, newCards);
+            currentState = PileState.FaceDown;
+            RefreshDisplay();
+        }
+
+        /// <summary>
+        /// 偷看顶部卡牌（只读，不移除不改变状态）。
+        /// skipRevealed=true 时跳过已揭示的顶牌（FaceUp 状态下从第二张开始）。
+        /// </summary>
+        public List<FishData> PeekTopCards(int count, bool skipRevealed = true)
+        {
+            int startIndex = (skipRevealed && currentState == PileState.FaceUp) ? 1 : 0;
+            int available = cards.Count - startIndex;
+            int actual = Mathf.Min(count, Mathf.Max(0, available));
+            if (actual <= 0) return new List<FishData>();
+            return new List<FishData>(cards.GetRange(startIndex, actual));
         }
 
         /// <summary>
@@ -248,6 +306,12 @@ namespace FishingSystem
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if (ClickInterceptor != null)
+            {
+                ClickInterceptor.Invoke(this);
+                return;
+            }
+
             // 玩家深度不足时拦截点击，不触发任何交互
             if (FishingTableManager.Instance != null && !FishingTableManager.Instance.CanPlayerAccessPile(this))
             {

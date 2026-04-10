@@ -14,22 +14,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: "\u7EA2\u9C91\u9C7C "
   icon: {fileID: 0}
-  description: 
+  description: "\u98DF\u7528\uFF1A\u8865\u51451\u4F53\u529B\u6216\u51CF\u5C111\u75AF\u72C2\u503C\n"
   value: 1
   weight: 1
   category: 0
+  allowedUseContext: -1
   depth: 0
   size: 0
   staminaCost: 1
   fishType: 0
   effects:
-  - rid: 5995037786240974861
+  - rid: 2986597071065186322
   references:
     version: 2
     RefIds:
-    - rid: 5995037786240974861
-      type: {class: Effect_RandomHealthOrSanity, ns: ItemSystem, asm: Assembly-CSharp}
+    - rid: 2986597071065186322
+      type: {class: Effect_RandomChoice, ns: ItemSystem, asm: Assembly-CSharp}
       data:
         trigger: 2
-        healthAmount: 1
-        sanityAmount: -1
+        candidates:
+        - rid: 2986597071065186323
+        - rid: 2986597071065186324
+    - rid: 2986597071065186323
+      type: {class: Effect_AddHealth, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: 1
+    - rid: 2986597071065186324
+      type: {class: Effect_ModifySanity, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: -1

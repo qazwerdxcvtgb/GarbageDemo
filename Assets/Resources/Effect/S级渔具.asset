@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 317b42d8b0d03944e91c78f88a0ea620, type: 3}
+  m_Name: "S\u7EA7\u6E14\u5177"
+  m_EditorClassIdentifier: 
+  effectName: "\u6BCF\u5929\u8865\u51455~6\u7684\u4F53\u529B "
+  effectDescription: 
+  trigger: 0
+  minAmount: 5
+  maxAmount: 6

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e0e4e0f8f5911e4fa651b7f8ec472b9, type: 3}
+  m_Name: "\u86C6\u866B\u888B"
+  m_EditorClassIdentifier: 
+  itemName: "\u86C6\u866B\u888B "
+  icon: {fileID: 0}
+  description: 
+  value: 0
+  weight: 1
+  category: 2
+  allowedUseContext: 1
+  effects:
+  - rid: 2986597071065186316
+  references:
+    version: 2
+    RefIds:
+    - rid: 2986597071065186316
+      type: {class: Effect_NextFishDiscount, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        reduction: 2

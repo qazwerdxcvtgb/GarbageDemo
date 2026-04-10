@@ -18,13 +18,14 @@ MonoBehaviour:
   value: 0
   weight: 1
   category: 1
+  allowedUseContext: -1
   effects:
-  - rid: 9178111255957733376
+  - rid: 2986597071065186321
   references:
     version: 2
     RefIds:
-    - rid: 9178111255957733376
-      type: {class: Effect_AddHealth, ns: ItemSystem, asm: Assembly-CSharp}
+    - rid: 2986597071065186321
+      type: {class: Effect_NextFishDiscount, ns: ItemSystem, asm: Assembly-CSharp}
       data:
         trigger: 2
-        amount: 2
+        reduction: 2

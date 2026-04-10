@@ -10,9 +10,13 @@ using ItemSystem;
 /// 独立面板，通过事件呼出/关闭（由场景中按钮的 EquipmentPanelToggleEvent 触发）。
 /// 持有鱼竿槽和渔轮槽两个 EquipmentSlotUI，处理以下场景：
 /// 场景1：手牌装备卡 → 空槽（直接装备）
-/// 场景2：手牌装备卡 → 已有卡的槽（替换：旧卡回手牌，新卡装备）
-/// 场景3：槽内装备卡 → 手牌区域（卸下：卡牌归还手牌）
+/// 场景2：手牌装备卡 → 已有卡的槽（替换：旧卡回手牌，新卡装备）— 仅钓鱼准备模式
+/// 场景3：槽内装备卡 → 手牌区域（卸下：卡牌归还手牌）— 仅钓鱼准备模式
 /// 面板打开时强制展开手牌，关闭时恢复。
+///
+/// 锁定机制：
+/// - 默认锁定：装备可装入空槽，但不可取下或替换
+/// - 钓鱼准备模式（OpenPanelForFishing）：完全解锁，可自由装备/取下/替换
 /// </summary>
 public class EquipmentPanel : MonoBehaviour
 {
@@ -27,6 +31,12 @@ public class EquipmentPanel : MonoBehaviour
 
     [Header("关闭按钮")]
     [SerializeField] private Button closeButton;
+
+    [Header("钓鱼准备模式")]
+    [Tooltip("确认按钮，钓鱼准备模式下替代关闭按钮")]
+    [SerializeField] private Button confirmButton;
+    [Tooltip("全屏遮罩，钓鱼准备模式下覆盖钓鱼页面以做视觉区分")]
+    [SerializeField] private GameObject fishingOverlay;
 
     [Header("依赖引用")]
     [SerializeField] private FishCardSystem.HandPanelUI handPanelUI;
@@ -43,6 +53,18 @@ public class EquipmentPanel : MonoBehaviour
     private Vector2       openPosition;
     private bool isOpen;
 
+    /// <summary>是否允许取下和替换装备（仅钓鱼准备模式为 true）</summary>
+    private bool allowRemoveAndReplace;
+
+    /// <summary>外部锁定关闭状态（偷看牌堆等效果使用时禁止打开面板）</summary>
+    private bool isOpenLocked;
+
+    /// <summary>面板下所有装备槽位（Awake 中自动收集，不依赖 Inspector 赋值）</summary>
+    private EquipmentSlotUI[] equipSlots;
+
+    /// <summary>供 EquipmentSlotUI.CanAccept 读取锁定状态</summary>
+    public bool AllowRemoveAndReplace => allowRemoveAndReplace;
+
     #region Unity Lifecycle
 
     private void Awake()
@@ -56,12 +78,18 @@ public class EquipmentPanel : MonoBehaviour
 
         if (closeButton != null)
             closeButton.onClick.AddListener(ClosePanel);
+        if (confirmButton != null)
+            confirmButton.onClick.AddListener(OnConfirmClicked);
 
         panelRect    = panelRoot?.GetComponent<RectTransform>();
         openPosition = panelRect != null ? panelRect.anchoredPosition : Vector2.zero;
 
         if (panelRoot != null)
             panelRoot.SetActive(false);
+        if (fishingOverlay != null)
+            fishingOverlay.SetActive(false);
+        if (confirmButton != null)
+            confirmButton.gameObject.SetActive(false);
 
         // 确保面板具有独立 Canvas，使其渲染在手牌面板之下、商店面板之上
         Canvas selfCanvas = GetComponent<Canvas>();
@@ -72,6 +100,8 @@ public class EquipmentPanel : MonoBehaviour
 
         if (GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
             gameObject.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+
+        equipSlots = GetComponentsInChildren<EquipmentSlotUI>(true);
     }
 
     private void Start()
@@ -100,11 +130,57 @@ public class EquipmentPanel : MonoBehaviour
     #region Public API
 
     /// <summary>
-    /// 打开装备面板（由 EquipmentPanelToggleEvent 或按钮调用）
+    /// 打开装备面板（普通模式：仅允许装入空槽，不可取下/替换）
     /// </summary>
     public void OpenPanel()
     {
-        if (isOpen) return;
+        if (isOpen || isOpenLocked) return;
+        isOpen = true;
+
+        // 普通模式：显示关闭按钮，隐藏确认按钮和遮罩
+        if (closeButton != null)
+            closeButton.gameObject.SetActive(true);
+        if (confirmButton != null)
+            confirmButton.gameObject.SetActive(false);
+        if (fishingOverlay != null)
+            fishingOverlay.SetActive(false);
+
+        if (panelRoot != null)
+            panelRoot.SetActive(true);
+
+        if (panelRect != null)
+        {
+            panelRect.DOKill();
+            float offscreenX = openPosition.x + panelRect.rect.width;
+            panelRect.anchoredPosition = new Vector2(offscreenX, openPosition.y);
+            panelRect.DOAnchorPos(openPosition, animDuration).SetEase(animEase);
+        }
+
+        handPanelUI?.LockExpanded();
+
+        Debug.Log("[EquipmentPanel] 面板打开（普通模式）");
+    }
+
+    /// <summary>
+    /// 以钓鱼准备模式打开装备面板（完全解锁：可装备/取下/替换）。
+    /// 由 DayManager.OnDeclarationChoice(Fishing) 调用。
+    /// 显示全屏遮罩和确认按钮，保留关闭按钮。
+    /// </summary>
+    public void OpenPanelForFishing()
+    {
+        if (isOpen || isOpenLocked) return;
+
+        allowRemoveAndReplace = true;
+
+        // 钓鱼准备模式：显示确认按钮和遮罩，保留关闭按钮
+        if (confirmButton != null)
+            confirmButton.gameObject.SetActive(true);
+        if (fishingOverlay != null)
+            fishingOverlay.SetActive(true);
+
+        // 解锁已有槽位卡的拖拽
+        SetSlotCardsLocked(false);
+
         isOpen = true;
 
         if (panelRoot != null)
@@ -120,16 +196,24 @@ public class EquipmentPanel : MonoBehaviour
 
         handPanelUI?.LockExpanded();
 
-        Debug.Log("[EquipmentPanel] 面板打开");
+        Debug.Log("[EquipmentPanel] 面板打开（钓鱼准备模式 - 解锁取下/替换）");
     }
 
     /// <summary>
-    /// 关闭装备面板
+    /// 关闭装备面板（同时重置锁定状态）
     /// </summary>
     public void ClosePanel()
     {
         if (!isOpen) return;
         isOpen = false;
+
+        allowRemoveAndReplace = false;
+
+        // 关闭时锁定槽位卡的拖拽
+        SetSlotCardsLocked(true);
+
+        if (fishingOverlay != null)
+            fishingOverlay.SetActive(false);
 
         if (panelRect != null)
         {
@@ -154,7 +238,15 @@ public class EquipmentPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// 切换装备面板开关状态（供外部按钮直接绑定）
+    /// 钓鱼准备模式确认按钮回调
+    /// </summary>
+    private void OnConfirmClicked()
+    {
+        ClosePanel();
+    }
+
+    /// <summary>
+    /// 切换装备面板开关状态（供外部按钮直接绑定，始终以普通模式打开）
     /// </summary>
     public void TogglePanel()
     {
@@ -162,6 +254,40 @@ public class EquipmentPanel : MonoBehaviour
             ClosePanel();
         else
             OpenPanel();
+    }
+
+    /// <summary>
+    /// 锁定关闭状态（偷看牌堆时调用）：若面板已打开则关闭，并禁止打开
+    /// </summary>
+    public void LockClosed()
+    {
+        isOpenLocked = true;
+        if (isOpen) ClosePanel();
+    }
+
+    /// <summary>
+    /// 解除关闭锁定（偷看结束时调用）
+    /// </summary>
+    public void UnlockClosed()
+    {
+        isOpenLocked = false;
+    }
+
+    #endregion
+
+    #region Slot Card Lock
+
+    /// <summary>
+    /// 设置所有装备槽位中卡牌的 isLocked 状态，控制是否可被拖拽
+    /// </summary>
+    private void SetSlotCardsLocked(bool locked)
+    {
+        if (equipSlots == null) return;
+        foreach (var slot in equipSlots)
+        {
+            if (slot != null && slot.IsOccupied)
+                slot.OccupiedCard.isLocked = locked;
+        }
     }
 
     #endregion
@@ -217,6 +343,9 @@ public class EquipmentPanel : MonoBehaviour
         // 设置视觉卡归属层级（装备面板 sortingOrder + 1）
         card.SetVisualHomeSortingOrder(panelSortingOrder + 1);
 
+        // 非解锁模式下锁定卡牌拖拽
+        card.isLocked = !allowRemoveAndReplace;
+
         if (oldContainer != null)
             Destroy(oldContainer.gameObject);
 
@@ -232,6 +361,13 @@ public class EquipmentPanel : MonoBehaviour
         if (!(sourceSlot is EquipmentSlotUI equipSlot)) return;
         if (!equipSlot.transform.IsChildOf(transform)) return;
 
+        if (!allowRemoveAndReplace)
+        {
+            card.transform.DOKill();
+            card.transform.DOLocalMove(Vector3.zero, 0.2f).SetEase(Ease.OutBack);
+            return;
+        }
+
         EjectCardToHand(card, equipSlot);
     }
 
@@ -241,6 +377,8 @@ public class EquipmentPanel : MonoBehaviour
     private void EjectCardToHand(ItemCard card, EquipmentSlotUI slot)
     {
         EquipmentData equipData = card.cardData as EquipmentData;
+
+        card.isLocked = false;
 
         // 从槽位释放（含 EquipmentManager.Unequip + CrossHolderSystem 注销）
         slot.ReleaseCard();

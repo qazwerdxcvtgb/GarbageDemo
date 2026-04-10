@@ -31,12 +31,16 @@ public class EquipmentSlotUI : MonoBehaviour, ICardSlot
     public ItemCard OccupiedCard => equippedCard;
 
     /// <summary>
-    /// 仅接受对应 EquipmentSlot 类型的装备卡
+    /// 仅接受对应 EquipmentSlot 类型的装备卡。
+    /// 已占用且装备面板处于锁定状态时拒绝替换（空槽始终允许装入）。
     /// </summary>
     public bool CanAccept(ItemCard card)
     {
         if (card == null) return false;
-        return card.cardData is EquipmentData ed && ed.slot == allowedSlot;
+        if (!(card.cardData is EquipmentData ed && ed.slot == allowedSlot)) return false;
+        if (IsOccupied && EquipmentPanel.Instance != null && !EquipmentPanel.Instance.AllowRemoveAndReplace)
+            return false;
+        return true;
     }
 
     /// <summary>

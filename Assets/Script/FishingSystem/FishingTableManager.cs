@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using ItemSystem;
 using HandSystem;
+using ShopSystem;
+using FishCardSystem;
 
 namespace FishingSystem
 {
@@ -57,6 +60,10 @@ namespace FishingSystem
 
         [Header("游戏状态")]
         [SerializeField] private CharacterState playerState;
+
+        [Header("选择面板")]
+        [Tooltip("CardSelectionPanel 预制体，供杂鱼三选一被动使用")]
+        [SerializeField] private GameObject cardSelectionPanelPrefab;
 
         [Header("调试")]
         [SerializeField] private bool showDebugInfo = true;
@@ -131,7 +138,9 @@ namespace FishingSystem
             }
 
             playerState.ModifyHealth(-1);
-            fishData.TriggerRevealEffects();
+
+            if (!ItemSystem.EffectBus.Instance.ShouldIgnoreRevealEffects)
+                fishData.TriggerRevealEffects();
 
             if (showDebugInfo)
                 Debug.Log($"[FishingTableManager] 翻牌成功：{fishData.itemName}，剩余体力={playerState.CurrentHealth}");
@@ -157,8 +166,8 @@ namespace FishingSystem
                 return false;
             }
 
-            // 通过 EffectBus 计算最终体力消耗（被动效果可减少消耗，下限为 0）
-            int finalCost = ItemSystem.EffectBus.Instance.ProcessFishingCost(fishData.staminaCost);
+            // 通过 EffectBus 计算最终体力消耗（被动效果可根据鱼属性条件减少消耗，下限为 0）
+            int finalCost = ItemSystem.EffectBus.Instance.ProcessFishingCost(fishData.staminaCost, fishData);
 
             if (playerState.CurrentHealth < finalCost)
             {
@@ -168,12 +177,16 @@ namespace FishingSystem
             }
 
             playerState.ModifyHealth(-finalCost);
-            fishData.TriggerCaptureEffects();
+
+            if (!ItemSystem.EffectBus.Instance.ShouldIgnoreCaptureEffects)
+                fishData.TriggerCaptureEffects();
 
             if (HandManager.Instance != null)
                 HandManager.Instance.AddCard(fishData);
 
             pile.RemoveTopCard();
+
+            ItemSystem.EffectBus.Instance.NotifyFishCaptured();
 
             if (showDebugInfo)
                 Debug.Log($"[FishingTableManager] 捕获成功：{fishData.itemName}，剩余体力={playerState.CurrentHealth}");
@@ -188,19 +201,36 @@ namespace FishingSystem
         public bool CanAffordCapture(FishData data)
         {
             if (playerState == null || data == null) return false;
-            int finalCost = ItemSystem.EffectBus.Instance.ProcessFishingCost(data.staminaCost);
+            int finalCost = ItemSystem.EffectBus.Instance.ProcessFishingCost(data.staminaCost, data);
             return playerState.CurrentHealth >= finalCost;
         }
 
         /// <summary>
-        /// 放弃捕获：从杂鱼牌库抽取一张加入手牌，不修改牌堆状态。
+        /// 放弃捕获：从杂鱼牌库抽取卡牌加入手牌，不修改牌堆状态。
+        /// 若装备被动启用了杂鱼选择，则抽取3张展示选择面板（3选1）。
         /// 若杂鱼牌库为空，则静默跳过（面板仍正常关闭）。
         /// </summary>
         /// <param name="pile">当前操作的牌堆（仅用于日志记录，逻辑不依赖）</param>
         public void TryAbandon(CardPile pile)
         {
-            ItemSystem.TrashData trash =
-                ItemPool.Instance?.DrawItem(ItemSystem.ItemCategory.Trash) as ItemSystem.TrashData;
+            if (ShopManager.Instance == null) return;
+
+            if (ItemSystem.EffectBus.Instance.TrashSelectionEnabled)
+            {
+                var drawnItems = ShopManager.Instance.DrawTopItems(ItemCategory.Trash, 3);
+
+                if (drawnItems.Count >= 2)
+                {
+                    OpenTrashSelection(drawnItems);
+                    return;
+                }
+
+                // 不足2张无法有效选择，归还已抽卡走正常逻辑
+                if (drawnItems.Count > 0)
+                    ShopManager.Instance.ReturnToTop(ItemCategory.Trash, drawnItems);
+            }
+
+            TrashData trash = ShopManager.Instance.DrawTrash();
 
             if (trash != null)
             {
@@ -213,6 +243,81 @@ namespace FishingSystem
                 if (showDebugInfo)
                     Debug.Log("[FishingTableManager] 放弃捕获，杂鱼牌库为空，未获得卡牌");
             }
+        }
+
+        /// <summary>
+        /// 打开杂鱼卡选择面板（3选1），由装备被动 Effect_TrashCardSelection 驱动。
+        /// 选中卡加入手牌，未选中卡归还杂鱼牌库并洗牌。
+        /// </summary>
+        private void OpenTrashSelection(List<ItemData> cards)
+        {
+            if (cardSelectionPanelPrefab == null)
+            {
+                Debug.LogError("[FishingTableManager] cardSelectionPanelPrefab 未配置，无法打开杂鱼选择面板");
+                // 回退：取第一张入手牌，其余归还
+                if (cards.Count > 0)
+                {
+                    HandManager.Instance?.AddCard(cards[0]);
+                    if (cards.Count > 1)
+                    {
+                        ShopManager.Instance?.ReturnToTop(ItemCategory.Trash, cards.GetRange(1, cards.Count - 1));
+                        ShopManager.Instance?.ShuffleTrashPool();
+                    }
+                }
+                return;
+            }
+
+            // 查找 UI Canvas 作为面板父节点
+            Canvas rootCanvas = null;
+            if (pileConfigs.Length > 0 && pileConfigs[0].pile != null)
+                rootCanvas = pileConfigs[0].pile.GetComponentInParent<Canvas>();
+            if (rootCanvas == null)
+                rootCanvas = FindObjectOfType<Canvas>();
+
+            Transform panelParent = rootCanvas != null ? rootCanvas.transform : transform;
+
+            GameObject panelObj = Instantiate(cardSelectionPanelPrefab, panelParent);
+            CardSelectionPanel panel = panelObj.GetComponentInChildren<CardSelectionPanel>(true);
+
+            if (panel == null)
+            {
+                Debug.LogError("[FishingTableManager] cardSelectionPanelPrefab 中未找到 CardSelectionPanel 组件");
+                Destroy(panelObj);
+                if (cards.Count > 0)
+                {
+                    HandManager.Instance?.AddCard(cards[0]);
+                    if (cards.Count > 1)
+                    {
+                        ShopManager.Instance?.ReturnToTop(ItemCategory.Trash, cards.GetRange(1, cards.Count - 1));
+                        ShopManager.Instance?.ShuffleTrashPool();
+                    }
+                }
+                return;
+            }
+
+            if (showDebugInfo)
+                Debug.Log($"[FishingTableManager] 杂鱼选择面板已打开，展示 {cards.Count} 张");
+
+            panel.Open(cards, 1, (selected, rejected) =>
+            {
+                foreach (var card in selected)
+                {
+                    HandManager.Instance?.AddCard(card);
+                    if (showDebugInfo)
+                        Debug.Log($"[FishingTableManager] 杂鱼选择：选中 {card.itemName}");
+                }
+
+                if (rejected.Count > 0)
+                {
+                    ShopManager.Instance?.ReturnToTop(ItemCategory.Trash, rejected);
+                    ShopManager.Instance?.ShuffleTrashPool();
+
+                    if (showDebugInfo)
+                        Debug.Log($"[FishingTableManager] 杂鱼选择：{rejected.Count} 张归还牌库并洗牌");
+                }
+
+                Destroy(panelObj);
+            });
         }
 
         #endregion
@@ -276,6 +381,106 @@ namespace FishingSystem
         {
             if (playerState == null || pile == null) return true;
             return playerState.CanAccessDepth(pile.PileDepth);
+        }
+
+        /// <summary>
+        /// 根据 CardPile 实例反查其配置（深度和序号），未找到返回 null
+        /// </summary>
+        public (FishDepth depth, int poolIndex)? GetPileConfig(CardPile pile)
+        {
+            foreach (var cfg in pileConfigs)
+            {
+                if (cfg.pile == pile)
+                    return (cfg.depth, cfg.poolIndex);
+            }
+            return null;
+        }
+
+        #endregion
+
+        #region 按深度/序号查询与复合抽取
+
+        /// <summary>
+        /// 按深度+序号精确查找单个 CardPile
+        /// </summary>
+        public CardPile GetPile(FishDepth depth, int poolIndex)
+        {
+            foreach (var cfg in pileConfigs)
+            {
+                if (cfg.pile != null && cfg.depth == depth && cfg.poolIndex == poolIndex)
+                    return cfg.pile;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 获取某深度下全部牌堆（最多3个）
+        /// </summary>
+        public List<CardPile> GetPilesByDepth(FishDepth depth)
+        {
+            var result = new List<CardPile>();
+            foreach (var cfg in pileConfigs)
+            {
+                if (cfg.pile != null && cfg.depth == depth)
+                    result.Add(cfg.pile);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 获取某序号跨所有深度的牌堆（最多3个）
+        /// </summary>
+        public List<CardPile> GetPilesByPoolIndex(int poolIndex)
+        {
+            var result = new List<CardPile>();
+            foreach (var cfg in pileConfigs)
+            {
+                if (cfg.pile != null && cfg.poolIndex == poolIndex)
+                    result.Add(cfg.pile);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 按深度横抽：从指定深度的各牌堆各抽取1张顶牌。
+        /// 返回带源追踪的列表，供调用方在回调中归还被拒绝的卡牌。
+        /// </summary>
+        public List<(FishData card, CardPile source)> DrawOneFromEachAtDepth(FishDepth depth)
+        {
+            var result = new List<(FishData, CardPile)>();
+            foreach (var cfg in pileConfigs)
+            {
+                if (cfg.pile != null && cfg.depth == depth && cfg.pile.CardCount > 0)
+                {
+                    FishData top = cfg.pile.RemoveTopCard();
+                    if (top != null) result.Add((top, cfg.pile));
+                }
+            }
+
+            if (showDebugInfo)
+                Debug.Log($"[FishingTableManager] 按深度横抽 {depth}：抽取 {result.Count} 张");
+            return result;
+        }
+
+        /// <summary>
+        /// 按序号纵抽：从3个深度的同序号牌堆各抽取1张顶牌。
+        /// 返回带源追踪的列表，供调用方在回调中归还被拒绝的卡牌。
+        /// </summary>
+        public List<(FishData card, CardPile source)> DrawOneFromEachAtPoolIndex(int poolIndex)
+        {
+            var result = new List<(FishData, CardPile)>();
+            foreach (var cfg in pileConfigs)
+            {
+                if (cfg.pile != null && cfg.poolIndex == poolIndex && cfg.pile.CardCount > 0)
+                {
+                    FishData top = cfg.pile.RemoveTopCard();
+                    if (top != null) result.Add((top, cfg.pile));
+                }
+            }
+
+            if (showDebugInfo)
+                Debug.Log($"[FishingTableManager] 按序号纵抽 poolIndex={poolIndex}：抽取 {result.Count} 张");
+            return result;
         }
 
         #endregion

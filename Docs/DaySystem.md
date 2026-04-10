@@ -14,10 +14,12 @@
 ## 每日流程
 
 ```
-D1(星期一): 跳过Start → Refresh(恢复体力) → Declaration(选择) → Action(行动)
+D1(星期一): 跳过Start → Refresh(恢复体力) → 跳过Declaration → 自动选择钓鱼 → Action(行动)
 D2-D6:     Start(结算) → Refresh(恢复体力) → Declaration(选择) → Action(行动)
 D6结束:    → GameOver(游戏结束面板)
 ```
+
+> **D1 简化说明**：D1 玩家金币=0、手牌=0，自动跳过声明阶段和钓鱼准备（装备调整），直接进入钓鱼行动。由 `DayManager.EnterFishingDirectly()` 实现。
 
 ### Start 阶段（D2-D6，系统自动执行）
 

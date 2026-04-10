@@ -106,7 +106,7 @@ namespace FishCardSystem
         {
             if (staminaCostText == null) return;
             int displayCost = effectDisplayEnabled && EffectBus.Instance != null
-                ? EffectBus.Instance.ProcessFishingCost(baseCost)
+                ? EffectBus.Instance.ProcessFishingCost(baseCost, currentData)
                 : baseCost;
             bool isModified = displayCost != baseCost;
             staminaCostText.text  = displayCost.ToString();

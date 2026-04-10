@@ -28,11 +28,15 @@ namespace ShopSystem
         public ItemCard OccupiedCard => hungCard;
 
         /// <summary>
-        /// 悬挂槽仅接受 FishData 类型卡牌
+        /// 悬挂槽仅接受 FishData 类型卡牌。
+        /// 已占用且未激活悬挂替换许可时拒绝替换（空槽始终允许悬挂）。
         /// </summary>
         public bool CanAccept(ItemCard card)
         {
-            return card != null && card.cardData is FishData;
+            if (card == null || !(card.cardData is FishData)) return false;
+            if (IsOccupied && (ItemSystem.EffectBus.Instance == null || !ItemSystem.EffectBus.Instance.AllowHangReplace))
+                return false;
+            return true;
         }
 
         /// <summary>
@@ -52,6 +56,9 @@ namespace ShopSystem
 
             // 注册为槽位卡，使其可被拖拽出槽（场景3）
             CrossHolderSystem.Instance?.RegisterSlotCard(card, this);
+
+            // 未激活悬挂替换许可时锁定卡牌拖拽
+            card.isLocked = EffectBus.Instance == null || !EffectBus.Instance.AllowHangReplace;
 
             RefreshVisual();
             Debug.Log($"[ShopHangSlot] 接受卡牌：{card.cardData?.itemName}");
@@ -133,6 +140,9 @@ namespace ShopSystem
 
             // 恢复后也注册为槽位卡，以支持拖出功能
             CrossHolderSystem.Instance?.RegisterSlotCard(fishCard, this);
+
+            // 未激活悬挂替换许可时锁定卡牌拖拽
+            fishCard.isLocked = EffectBus.Instance == null || !EffectBus.Instance.AllowHangReplace;
 
             // 恢复时同步设置视觉卡层级（与拖拽悬挂路径保持一致）
             // 注：FishCard.Start 在下一帧执行，此处延迟一帧确保 cardVisual 已初始化

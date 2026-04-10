@@ -70,6 +70,8 @@ namespace ItemSystem
         /// </summary>
         public void TriggerDiscardEffects() => TriggerEffects(EffectTrigger.OnDiscard);
         
+        public override bool CanUse(out string reason) => CheckUseEffects(effects, out reason);
+        
         public override string GetItemInfo()
         {
             var effectDescs = effects

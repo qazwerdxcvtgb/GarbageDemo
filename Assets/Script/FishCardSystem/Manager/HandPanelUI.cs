@@ -45,6 +45,7 @@ namespace FishCardSystem
         private Vector2 expandedPosition;
         private bool isAnimating;
         private bool lockedExpanded;
+        private bool lockedCollapsed;
 
         // 供外部系统（如商店）访问 Holder 引用
         public FishCardHolder CardHolder => cardHolder;
@@ -126,7 +127,7 @@ namespace FishCardSystem
         /// </summary>
         public void Show()
         {
-            if (isExpanded || isAnimating || holderRect == null)
+            if (isExpanded || isAnimating || holderRect == null || lockedCollapsed)
                 return;
 
             isExpanded = true;
@@ -163,7 +164,7 @@ namespace FishCardSystem
         /// </summary>
         public void Toggle()
         {
-            if (lockedExpanded) return;
+            if (lockedExpanded || lockedCollapsed) return;
             if (isExpanded)
                 Hide();
             else
@@ -187,6 +188,27 @@ namespace FishCardSystem
         public void UnlockExpanded()
         {
             lockedExpanded = false;
+            if (toggleButton != null)
+                toggleButton.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// 锁定收起状态（偷看牌堆时调用）：强制收起、隐藏 ToggleButton、禁止展开
+        /// </summary>
+        public void LockCollapsed()
+        {
+            lockedCollapsed = true;
+            if (toggleButton != null)
+                toggleButton.gameObject.SetActive(false);
+            Hide();
+        }
+
+        /// <summary>
+        /// 解除收起锁定（偷看结束时调用）：恢复 ToggleButton 显示
+        /// </summary>
+        public void UnlockCollapsed()
+        {
+            lockedCollapsed = false;
             if (toggleButton != null)
                 toggleButton.gameObject.SetActive(true);
         }

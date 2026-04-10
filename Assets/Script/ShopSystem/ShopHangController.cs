@@ -4,6 +4,7 @@ using ItemSystem;
 using UnityEngine.UI;
 using FishCardSystem;
 using HandSystem;
+using DG.Tweening;
 
 namespace ShopSystem
 {
@@ -56,6 +57,9 @@ namespace ShopSystem
                 CrossHolderSystem.Instance.OnCardEjectedToHand.RemoveListener(OnCardEjectedToHand);
                 CrossHolderSystem.Instance.OnCardEjectedToHand.AddListener(OnCardEjectedToHand);
             }
+
+            if (ItemSystem.EffectBus.Instance != null)
+                ItemSystem.EffectBus.Instance.OnHangReplaceChanged += OnHangReplaceChanged;
         }
 
         private void OnDestroy()
@@ -65,6 +69,9 @@ namespace ShopSystem
                 CrossHolderSystem.Instance.OnCardDroppedToSlot.RemoveListener(OnCrossHolderDrop);
                 CrossHolderSystem.Instance.OnCardEjectedToHand.RemoveListener(OnCardEjectedToHand);
             }
+
+            if (ItemSystem.EffectBus.Instance != null)
+                ItemSystem.EffectBus.Instance.OnHangReplaceChanged -= OnHangReplaceChanged;
         }
 
         #region Public API
@@ -173,6 +180,13 @@ namespace ShopSystem
             int slotIndex = System.Array.IndexOf(hangSlots, hangSlot);
             if (slotIndex < 0) return;
 
+            if (ItemSystem.EffectBus.Instance == null || !ItemSystem.EffectBus.Instance.AllowHangReplace)
+            {
+                card.transform.DOKill();
+                card.transform.DOLocalMove(Vector3.zero, 0.2f).SetEase(Ease.OutBack);
+                return;
+            }
+
             EjectCardToHand(card, hangSlot, slotIndex);
         }
 
@@ -182,6 +196,8 @@ namespace ShopSystem
         private void EjectCardToHand(ItemCard card, ShopHangSlot slot, int slotIndex)
         {
             FishData fishData = card.cardData as FishData;
+
+            card.isLocked = false;
 
             // 从槽位释放卡牌（清除 CrossHolderSystem 注册）
             slot.ReleaseCard();
@@ -200,6 +216,22 @@ namespace ShopSystem
             card.SetVisualHomeSortingOrder(0);
 
             Debug.Log($"[ShopHangController] 槽位 {slotIndex} 卡牌归还手牌：{fishData?.itemName}");
+        }
+
+        #endregion
+
+        #region Hang Replace State
+
+        /// <summary>
+        /// 响应 EffectBus.OnHangReplaceChanged，更新所有已悬挂卡牌的 isLocked 状态
+        /// </summary>
+        private void OnHangReplaceChanged(bool allowed)
+        {
+            foreach (var slot in hangSlots)
+            {
+                if (slot != null && slot.IsOccupied)
+                    slot.OccupiedCard.isLocked = !allowed;
+            }
         }
 
         #endregion

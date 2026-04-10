@@ -7,7 +7,7 @@ namespace ShopSystem
 {
     /// <summary>
     /// 商店数据管理器（单例，DontDestroyOnLoad）
-    /// 职责：持有消耗品和装备商店牌序、持久化悬挂槽数据、供 GameManager 终局结算读取
+    /// 职责：持有消耗品、装备、杂鱼商店牌序、持久化悬挂槽数据、供 GameManager 终局结算读取
     /// </summary>
     public class ShopManager : MonoBehaviour
     {
@@ -21,6 +21,9 @@ namespace ShopSystem
 
         // 装备商店牌序（从 ItemPool 深拷贝，顺序抽取）
         private List<EquipmentData> equipmentPool = new List<EquipmentData>();
+
+        // 杂鱼牌序（从 ItemPool 深拷贝，顺序抽取）
+        private List<TrashData> trashPool = new List<TrashData>();
 
         private bool isPoolInitialized = false;
 
@@ -67,8 +70,11 @@ namespace ShopSystem
             List<ItemData> equipmentSource = ItemPool.Instance.GetCategoryDeck(ItemCategory.Equipment);
             equipmentPool = new List<EquipmentData>(equipmentSource.OfType<EquipmentData>());
 
+            List<ItemData> trashSource = ItemPool.Instance.GetCategoryDeck(ItemCategory.Trash);
+            trashPool = new List<TrashData>(trashSource.OfType<TrashData>());
+
             isPoolInitialized = true;
-            Debug.Log($"[ShopManager] 牌序初始化完成：消耗品 {consumablePool.Count} 张，装备 {equipmentPool.Count} 张");
+            Debug.Log($"[ShopManager] 牌序初始化完成：消耗品 {consumablePool.Count} 张，装备 {equipmentPool.Count} 张，杂鱼 {trashPool.Count} 张");
         }
 
         /// <summary>
@@ -123,6 +129,104 @@ namespace ShopSystem
             return equipmentPool.Count > 0 ? equipmentPool[0] : null;
         }
 
+        /// <summary>
+        /// 顺序抽取一张杂鱼并从列表移除。池空时返回 null。
+        /// </summary>
+        public TrashData DrawTrash()
+        {
+            if (trashPool.Count == 0)
+            {
+                Debug.Log("[ShopManager] 杂鱼牌池已耗尽");
+                return null;
+            }
+
+            TrashData drawn = trashPool[0];
+            trashPool.RemoveAt(0);
+            Debug.Log($"[ShopManager] 抽取杂鱼：{drawn.itemName}，剩余 {trashPool.Count} 张");
+            return drawn;
+        }
+
+        /// <summary>
+        /// 杂鱼牌池是否已耗尽
+        /// </summary>
+        public bool IsTrashPoolEmpty => trashPool.Count == 0;
+
+        /// <summary>
+        /// 通用批量抽取：从指定类型牌堆顶部取 count 张并移除。
+        /// 牌堆不足时返回实际可用数量。
+        /// </summary>
+        public List<ItemData> DrawTopItems(ItemCategory category, int count)
+        {
+            switch (category)
+            {
+                case ItemCategory.Consumable: return DrawTopFromPool(consumablePool, category, count);
+                case ItemCategory.Equipment:  return DrawTopFromPool(equipmentPool, category, count);
+                case ItemCategory.Trash:      return DrawTopFromPool(trashPool, category, count);
+                default:
+                    Debug.LogWarning($"[ShopManager] DrawTopItems 不支持的牌堆类型：{category}");
+                    return new List<ItemData>();
+            }
+        }
+
+        /// <summary>
+        /// 将卡牌插回指定类型牌堆顶部（保持传入列表的原始顺序）。
+        /// 例如传入 [A, B, C]，结果牌堆顶部为 A, B, C, ...原有牌...
+        /// </summary>
+        public void ReturnToTop(ItemCategory category, List<ItemData> cards)
+        {
+            if (cards == null || cards.Count == 0) return;
+
+            switch (category)
+            {
+                case ItemCategory.Consumable: InsertToPool(consumablePool, cards, category); break;
+                case ItemCategory.Equipment:  InsertToPool(equipmentPool, cards, category);  break;
+                case ItemCategory.Trash:      InsertToPool(trashPool, cards, category);      break;
+                default:
+                    Debug.LogWarning($"[ShopManager] ReturnToTop 不支持的牌堆类型：{category}");
+                    break;
+            }
+        }
+
+        private List<ItemData> DrawTopFromPool<T>(List<T> pool, ItemCategory category, int count) where T : ItemData
+        {
+            int actual = Mathf.Min(count, pool.Count);
+            var result = new List<ItemData>(actual);
+            for (int i = 0; i < actual; i++)
+            {
+                result.Add(pool[0]);
+                pool.RemoveAt(0);
+            }
+            Debug.Log($"[ShopManager] 批量抽取 {category}：请求 {count} 张，实际 {actual} 张，剩余 {pool.Count} 张");
+            return result;
+        }
+
+        private void InsertToPool<T>(List<T> pool, List<ItemData> cards, ItemCategory category) where T : ItemData
+        {
+            for (int i = cards.Count - 1; i >= 0; i--)
+            {
+                if (cards[i] is T typed)
+                    pool.Insert(0, typed);
+            }
+            Debug.Log($"[ShopManager] 归还 {cards.Count} 张 {category} 到牌堆顶部，当前牌堆 {pool.Count} 张");
+        }
+
+        /// <summary>
+        /// 对杂鱼牌池执行 Fisher-Yates 洗牌
+        /// </summary>
+        public void ShuffleTrashPool()
+        {
+            int n = trashPool.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = Random.Range(0, n + 1);
+                TrashData temp = trashPool[k];
+                trashPool[k] = trashPool[n];
+                trashPool[n] = temp;
+            }
+            Debug.Log($"[ShopManager] 杂鱼牌池已洗牌，共 {trashPool.Count} 张");
+        }
+
         #endregion
 
         #region Hang Slot Management
@@ -169,6 +273,7 @@ namespace ShopSystem
         {
             consumablePool.Clear();
             equipmentPool.Clear();
+            trashPool.Clear();
 
             for (int i = 0; i < hangSlots.Length; i++)
                 hangSlots[i] = null;

@@ -1,6 +1,6 @@
 # 开发文档索引
 
-> 更新：2026-04-03  
+> 更新：2026-04-10  
 > **使用说明**：新 agent 先读 [ProjectOverview](ProjectOverview.md) 了解项目全貌，再按本索引查找具体系统文档。  
 > **文档规范**：修改文档时务必遵循 [DocStandards](DocStandards.md)。
 
@@ -19,8 +19,23 @@
 | 全局事件类型定义 | [CoreSystem](CoreSystem.md) | GameEvents |
 | 物品数据结构（鱼/装备/消耗品） | [ItemSystem](ItemSystem.md) | 数据类 |
 | 物品效果系统（EffectBase 等） | [ItemSystem](ItemSystem.md) | 效果系统 |
+| 钓鱼体力条件折扣 | [ItemSystem](ItemSystem.md) | Effect_ConditionalFishingDiscount |
+| 每日装备体力补充 | [ItemSystem](ItemSystem.md) | Effect_PassiveDailyHealth |
+| 捕获恢复体力 | [ItemSystem](ItemSystem.md) | Effect_PassiveOnCaptureHealth |
+| 揭示时免疫鱼卡效果 | [ItemSystem](ItemSystem.md) | Effect_IgnoreRevealEffect |
+| 偷看牌堆效果 | [ItemSystem](ItemSystem.md) | Effect_PeekPile |
+| 偷看一行效果 | [ItemSystem](ItemSystem.md) | Effect_PeekRow |
+| 偷看一列效果 | [ItemSystem](ItemSystem.md) | Effect_PeekColumn |
+| 增加玩家深度效果 | [ItemSystem](ItemSystem.md) | Effect_IncreaseDepth |
+| 修改金币效果 | [ItemSystem](ItemSystem.md) | Effect_ModifyGold |
+| 随机选择效果（效果组合） | [ItemSystem](ItemSystem.md) | Effect_RandomChoice |
+| 装备临时体力机制 | [CoreSystem](CoreSystem.md) | CharacterState |
 | 物品池（抽取鱼/物品） | [ItemSystem](ItemSystem.md) | ItemPool |
 | 手牌数据管理 | [HandSystem](HandSystem.md) | HandManager |
+| 手牌使用按钮 / 单选 / 可用性检查 | [HandSystem](HandSystem.md) | UseCardHandler |
+| 卡牌选择面板（多选/回调） | [HandSystem](HandSystem.md) | CardSelectionPanel |
+| ShopManager 牌库管理（杂鱼/消耗/装备池） | [ItemSystem](ItemSystem.md) | ShopManager 牌库管理 |
+| 卡牌使用场合配置（CardUseContext） | [ItemSystem](ItemSystem.md) | 枚举定义 |
 | 卡牌脚本 API / 拖拽 | [FishCardSystem](FishCardSystem.md) | 核心 API |
 | 卡牌 Unity 配置 | [FishCardSystem](FishCardSystem.md) | Unity 配置摘要 |
 | 跨 Holder 拖拽 / 锁定 | [FishCardSystem](FishCardSystem.md) | CrossHolderSystem |
@@ -71,22 +86,27 @@ CharacterState                 // 挂载在玩家对象上，非全局单例
 Assets/Script/
 ├── Core/               (3)  GameManager, CharacterState, GameEvents
 ├── DaySystem/          (5)  DayManager, DeclarationPanel, DayEndPanel, GameOverPanel, DayDisplayUI
-├── FishCardSystem/     (18)
+├── FishCardSystem/     (21)
 │   ├── Core/           (6)  ItemCard, FishCard, TrashCard, ConsumableCard, EquipmentCard, CardContextMode
 │   ├── Data/           (1)  CurveParameters
-│   ├── Manager/        (5)  CrossHolderSystem, FishCardHolder, HandPanelUI, ICardSlot, VisualCardsHandler
+│   ├── Manager/        (8)  CrossHolderSystem, FishCardHolder, HandPanelUI, ICardSlot,
+│   │                         UseCardHandler, VisualCardsHandler, CardSelectionPanel, SelectionSlot
 │   ├── Utility/        (1)  ExtensionMethods
 │   └── Visual/         (5)  FishCardVisual, FishCardFrontDisplay, TrashCardFrontDisplay,
 │                             ConsumableCardFrontDisplay, EquipmentCardFrontDisplay
-├── FishingSystem/      (4)  FishingTableManager, CardPile, CardPilePanel, PileThicknessDisplay
+├── FishingSystem/      (5)  FishingTableManager, CardPile, CardPilePanel, PileThicknessDisplay, PeekPileHandler
 ├── HandSystem/         (1)  HandManager
-├── ItemSystem/         (22)
-│   ├── Data/           (7)  ItemData, FishData, TrashData, ConsumableData, EquipmentData,
-│   │                         ItemEnums, ItemEnumsExtensions
+├── ItemSystem/         (25)
+│   ├── Data/           (8)  ItemData, FishData, TrashData, ConsumableData, EquipmentData,
+│   │                         ItemEnums, ItemEnumsExtensions, CardUseContext
 │   ├── Editor/         (1)  EffectBaseDrawer
 │   ├── Effects/        (6)  EffectBase, EffectBus, EffectContext, EffectData, EffectTrigger, PassiveEffect
-│   │   └── Implementations/ (6)  Effect_AddHealth, Effect_AddRandomHealth, Effect_DrawCards,
-│   │                              Effect_FishingStaminaDiscount, Effect_ModifySanity,
+│   │   └── Implementations/ (13) Effect_AddHealth, Effect_AddRandomHealth,
+│   │                              Effect_ConditionalFishingDiscount, Effect_DrawCards,
+│   │                              Effect_IgnoreCaptureEffect, Effect_IgnoreRevealEffect,
+│   │                              Effect_ModifySanity, Effect_PassiveDailyHealth,
+│   │                              Effect_PassiveOnCaptureHealth, Effect_PeekPile,
+│   │                              Effect_PeekRow, Effect_PeekColumn,
 │   │                              Effect_RandomHealthOrSanity
 │   └── Managers/       (2)  ItemPool, EquipmentManager
 ├── ShopSystem/         (9)  ShopManager, ShopPanel, ShopSellController, ShopBuyController,
@@ -111,8 +131,9 @@ GameManager ←── ItemSystem.Effects（ModifySanity）
 CharacterState ←── ItemSystem.Effects（ModifyHealth）
 
 ItemPool ──→ FishingTableManager（按深度抽牌）
-ItemPool ──→ ShopManager（消耗品/装备牌序）
+ItemPool ──→ ShopManager（消耗品/装备/杂鱼牌序）
 FishingTableManager ──→ HandManager（捕获后 AddCard）
+FishingTableManager ──→ ShopManager（放弃时 DrawTrash）
 HandManager ──→ HandPanelUI（OnHandChanged 刷新）
 
 ShopPanel ──→ ShopSellController + ShopBuyController + ShopHangController
