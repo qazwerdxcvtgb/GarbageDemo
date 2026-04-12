@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e0e4e0f8f5911e4fa651b7f8ec472b9, type: 3}
   m_Name: "\u5927\u98DF\u7269"
   m_EditorClassIdentifier: 
-  itemName: "\u5C0F\u98DF\u7269 "
+  itemName: "\u5927\u98DF\u7269 "
   icon: {fileID: 0}
-  description: 
+  description: "\u8865\u51452~6\u4F53\u529B\n"
   value: 0
   weight: 1
   category: 2
@@ -28,5 +28,5 @@ MonoBehaviour:
       type: {class: Effect_AddRandomHealth, ns: ItemSystem, asm: Assembly-CSharp}
       data:
         trigger: 2
-        minAmount: 1
-        maxAmount: 3
+        minAmount: 2
+        maxAmount: 6

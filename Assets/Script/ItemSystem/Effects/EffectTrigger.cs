@@ -23,6 +23,9 @@ namespace ItemSystem
         OnEquip,
         
         [InspectorName("卸下时")]
-        OnUnequip
+        OnUnequip,
+        
+        [InspectorName("手牌中持续")]
+        WhileInHand
     }
 }

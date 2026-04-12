@@ -103,6 +103,7 @@ namespace ItemSystem
                 case EffectTrigger.OnDiscard: return "丢弃时";
                 case EffectTrigger.OnEquip: return "装备时";
                 case EffectTrigger.OnUnequip: return "卸下时";
+                case EffectTrigger.WhileInHand: return "手牌中持续";
                 default: return trigger.ToString();
             }
         }

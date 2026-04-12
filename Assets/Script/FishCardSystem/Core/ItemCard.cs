@@ -99,7 +99,7 @@ namespace FishCardSystem
             Vector2 direction      = (targetPosition - (Vector2)transform.position).normalized;
             float   distance       = Vector2.Distance(transform.position, targetPosition);
             float   speed          = Mathf.Min(moveSpeedLimit, distance / Time.deltaTime);
-            transform.Translate(direction * speed * Time.deltaTime);
+            transform.Translate(direction * speed * Time.deltaTime, Space.World);
         }
 
         #endregion

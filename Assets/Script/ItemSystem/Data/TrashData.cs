@@ -46,6 +46,8 @@ namespace ItemSystem
             TriggerEffects(EffectTrigger.OnUse);
         }
         
+        public override List<EffectBase> GetEffects() => effects;
+
         public override bool CanUse(out string reason) => CheckUseEffects(effects, out reason);
         
         public override string GetItemInfo()

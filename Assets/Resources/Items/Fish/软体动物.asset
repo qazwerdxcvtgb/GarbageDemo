@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47ca162ab9d0bfb4d8f093d621249eb2, type: 3}
+  m_Name: "\u8F6F\u4F53\u52A8\u7269"
+  m_EditorClassIdentifier: 
+  itemName: "\u8F6F\u4F53\u52A8\u7269 "
+  icon: {fileID: 0}
+  description: "\u63ED\u793A\uFF1A\u672C\u5217\u7684\u9C7C\u5F71\u90FD\u63ED\u793A\n\u98DF\u7528\uFF1A\u589E\u52A02\u75AF\u72C2\u503C\n"
+  value: 4
+  weight: 1
+  category: 0
+  allowedUseContext: -1
+  depth: 1
+  size: 1
+  staminaCost: 3
+  fishType: 1
+  effects:
+  - rid: 2986597097392046115
+  - rid: 2986597097392046116
+  references:
+    version: 2
+    RefIds:
+    - rid: 2986597097392046115
+      type: {class: Effect_RevealColumn, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 0
+    - rid: 2986597097392046116
+      type: {class: Effect_ModifySanity, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: 2

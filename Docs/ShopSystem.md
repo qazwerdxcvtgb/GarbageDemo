@@ -120,14 +120,17 @@ ShopPanel.Instance.ClosePanel()  // 关闭商店，清理视觉和事件
 
 1. 订阅 `HandManager.OnHandChanged`（手牌变化后刷新订阅）
 2. 订阅所有 `ItemCard.SelectEvent`
-3. 玩家点击卡牌选中/取消 → 重新计算总价 → 更新 `totalPriceText` + `sellButton`
-4. 点击"售卖"按钮 → 移除选中卡、增加金币
+3. 订阅 `GameManager.OnSanityLevelChanged`（疯狂等级变化时刷新总价）
+4. 玩家点击卡牌选中/取消 → 重新计算总价（含疯狂等级修正）→ 更新 `totalPriceText` + `sellButton`
+5. 点击"售卖"按钮 → 移除选中卡、按修正后价格增加金币
 
 ### 售卖规则
 
 - 所有手牌类型（Fish / Trash / Consumable）均可售卖
-- 价格 = `ItemData.value` 累加，不做额外调整
+- **FishData 类型**：单卡售价 = `Mathf.Max(0, value + GameManager.GetSanityGoldModifier(fishType))`，受疯狂等级影响（详见 [CoreSystem → 疯狂值](CoreSystem.md)）
+- **其他类型**：售价 = `ItemData.value`，不受疯狂等级影响
 - 已锁定卡牌（`isLocked = true`，即悬挂槽中的鱼牌）不响应选中事件
+- 商店打开期间订阅 `OnSanityLevelChanged`，疯狂等级变化时自动刷新已选总价
 
 ### Inspector 配置
 
@@ -350,11 +353,11 @@ public enum CrossHolderRole { None, Source, Target, Both }
 ### 开关 API
 
 ```csharp
-EquipmentPanel.Instance.OpenPanel()             // 普通模式：仅空槽可装备
-EquipmentPanel.Instance.OpenPanelForFishing()   // 钓鱼准备模式：完全解锁
-EquipmentPanel.Instance.ClosePanel()            // 关闭并重置为锁定状态
-EquipmentPanel.Instance.TogglePanel()           // 绑定按钮 onClick（始终普通模式）
-EquipmentPanel.Instance.AllowRemoveAndReplace   // bool 只读属性，供 EquipmentSlotUI 读取
+EquipmentPanel.Instance.OpenPanel()                          // 普通模式：仅空槽可装备
+EquipmentPanel.Instance.OpenPanelForFishing(onConfirmed)     // 钓鱼准备模式：完全解锁，面板关闭时触发 onConfirmed 回调
+EquipmentPanel.Instance.ClosePanel()                         // 关闭并重置为锁定状态（钓鱼模式下自动触发回调）
+EquipmentPanel.Instance.TogglePanel()                        // 绑定按钮 onClick（始终普通模式）
+EquipmentPanel.Instance.AllowRemoveAndReplace                // bool 只读属性，供 EquipmentSlotUI 读取
 ```
 
 ### Inspector 配置

@@ -29,10 +29,10 @@ CurveParameters（ScriptableObject）定义手牌弧线曲线
 | `ConsumableCard` | `Core/ConsumableCard.cs` | 逻辑卡：消耗品数据绑定 |
 | `EquipmentCard` | `Core/EquipmentCard.cs` | 逻辑卡：装备数据绑定 |
 | `FishCardVisual` | `Visual/FishCardVisual.cs` | 视觉卡：动画、跟随、弧线 |
-| `FishCardFrontDisplay` | `Visual/FishCardFrontDisplay.cs` | 卡牌 UI 数据绑定（鱼类） |
-| `TrashCardFrontDisplay` | `Visual/TrashCardFrontDisplay.cs` | 卡牌 UI 数据绑定（杂鱼） |
-| `ConsumableCardFrontDisplay` | `Visual/ConsumableCardFrontDisplay.cs` | 卡牌 UI 数据绑定（消耗品） |
-| `EquipmentCardFrontDisplay` | `Visual/EquipmentCardFrontDisplay.cs` | 卡牌 UI 数据绑定（装备） |
+| `FishCardFrontDisplay` | `Visual/FishCardFrontDisplay.cs` | 卡牌 UI 数据绑定（鱼类）；效果描述读取 `data.description` |
+| `TrashCardFrontDisplay` | `Visual/TrashCardFrontDisplay.cs` | 卡牌 UI 数据绑定（杂鱼）；效果描述读取 `data.description` |
+| `ConsumableCardFrontDisplay` | `Visual/ConsumableCardFrontDisplay.cs` | 卡牌 UI 数据绑定（消耗品）；效果描述读取 `data.description` |
+| `EquipmentCardFrontDisplay` | `Visual/EquipmentCardFrontDisplay.cs` | 卡牌 UI 数据绑定（装备）；效果描述读取 `data.description` |
 | `CardContextMode` | `Core/CardContextMode.cs` | 枚举：卡牌上下文模式（Hand/Pile/Shop 等） |
 | `FishCardHolder` | `Manager/FishCardHolder.cs` | 容器：槽位管理、拖拽排序、悬停压缩；含 `CrossHolderRole` 字段，按角色自动注册到 CrossHolderSystem |
 | `CrossHolderSystem` | `Manager/CrossHolderSystem.cs` | 跨 Holder 拖拽全局单例：Source/Target 自动注册、阈值检测、主动归位 |

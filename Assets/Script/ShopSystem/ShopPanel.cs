@@ -121,13 +121,18 @@ namespace ShopSystem
             foreach (var obj in hideOnOpen)
                 obj?.SetActive(false);
 
-            // 3. 默认显示商店页
-            SwitchTab(false);
+            // 3. 确保悬挂页激活以正确恢复悬挂状态（RestoreCard 需要 HangSlot 处于 active）
+            if (hangTabContent != null)
+                hangTabContent.SetActive(true);
 
             // 4. 通知子控制器
             sellController?.OnShopOpen();
+            hangController?.AutoHangEligibleCards();
             hangController?.RestoreHangState();
             buyController?.RefreshButtonState();
+
+            // 5. 默认显示商店页（此时 RestoreCard 已完成，可安全隐藏悬挂页）
+            SwitchTab(false);
 
             Debug.Log("[ShopPanel] 商店面板已打开");
         }

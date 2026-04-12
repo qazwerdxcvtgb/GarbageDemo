@@ -82,7 +82,16 @@ namespace ItemSystem
         /// <returns>经过所有被动效果修改后的最终消耗值（≥ 0）</returns>
         public int ProcessFishingCost(int baseCost, FishData fishData)
         {
+            if (fishData != null && CheckFreeCaptureByHand(fishData))
+                return 0;
+            if (fishData != null && CheckFreeCaptureOnSanity(fishData))
+                return 0;
+
             int result = baseCost;
+
+            if (fishData != null)
+                result += CheckHandFishCostIncrease(fishData);
+
             if (OnModifyFishingCost != null)
             {
                 foreach (Delegate d in OnModifyFishingCost.GetInvocationList())
@@ -91,9 +100,63 @@ namespace ItemSystem
                         result = modifier(result, fishData);
                 }
             }
+            if (revealCostReduction > 0)
+                result -= revealCostReduction;
             if (nextFishCostReduction > 0)
                 result -= nextFishCostReduction;
             return Mathf.Max(0, result);
+        }
+
+        /// <summary>
+        /// 检查 fishData 是否携带 Effect_FreeCaptureByHand 且手牌条件满足。
+        /// 每次 ProcessFishingCost 调用时实时评估，无缓存。
+        /// </summary>
+        private bool CheckFreeCaptureByHand(FishData fishData)
+        {
+            if (fishData.effects == null) return false;
+            foreach (var effect in fishData.effects)
+            {
+                if (effect is Effect_FreeCaptureByHand fc && fc.CheckHandCondition())
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 检查 fishData 是否携带 Effect_FreeCaptureOnSanity 且当前疯狂等级匹配。
+        /// 每次 ProcessFishingCost 调用时实时评估，无缓存。
+        /// </summary>
+        private bool CheckFreeCaptureOnSanity(FishData fishData)
+        {
+            if (fishData.effects == null) return false;
+            foreach (var effect in fishData.effects)
+            {
+                if (effect is Effect_FreeCaptureOnSanity fs && fs.CheckSanityCondition())
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 检查 fishData 是否携带 Effect_CostPerHandFish，返回手牌鱼卡带来的额外消耗总计。
+        /// 每次 ProcessFishingCost 调用时实时评估，无缓存。
+        /// </summary>
+        private int CheckHandFishCostIncrease(FishData fishData)
+        {
+            if (fishData.effects == null) return 0;
+            int total = 0;
+            bool found = false;
+            foreach (var effect in fishData.effects)
+            {
+                if (effect is Effect_CostPerHandFish cpf)
+                {
+                    total += cpf.GetHandFishCount();
+                    found = true;
+                }
+            }
+            if (found && handFishCostSourceCount == 0)
+                RegisterHandFishCostSource();
+            return total;
         }
 
         #endregion
@@ -263,6 +326,36 @@ namespace ItemSystem
 
         #endregion
 
+        #region 揭示体力折扣（鱼卡 OnReveal 效果）
+
+        private int revealCostReduction = 0;
+
+        /// <summary>
+        /// 设置揭示体力折扣（由 Effect_RevealCostReduction 在 OnReveal 时调用）。
+        /// CardPilePanel 关闭时自动清除。
+        /// </summary>
+        public void SetRevealCostReduction(int amount)
+        {
+            revealCostReduction = amount;
+            Debug.Log($"[EffectBus] 揭示体力折扣已设置：-{amount}");
+            NotifyFishingModifierChanged();
+        }
+
+        /// <summary>
+        /// 清除揭示体力折扣（CardPilePanel.ClosePanel 调用）。
+        /// </summary>
+        public void ClearRevealCostReduction()
+        {
+            if (revealCostReduction > 0)
+            {
+                Debug.Log($"[EffectBus] 揭示体力折扣已清除（原值：-{revealCostReduction}）");
+                revealCostReduction = 0;
+                NotifyFishingModifierChanged();
+            }
+        }
+
+        #endregion
+
         #region 一次性钓鱼折扣（消耗品效果）
 
         private int nextFishCostReduction = 0;
@@ -306,6 +399,298 @@ namespace ItemSystem
                 nextFishCostReduction = 0;
                 Debug.Log("[EffectBus] 一次性钓鱼折扣已重置（每日）");
             }
+        }
+
+        #endregion
+
+        #region 揭示后自动移除
+
+        private bool pendingRemoveOnReveal = false;
+
+        /// <summary>
+        /// 标记当前揭示的鱼卡需要自动移除（由 Effect_RemoveOnReveal 调用）。
+        /// CardPilePanel 在 TryReveal 返回后通过 Consume 读取并清除此标记。
+        /// </summary>
+        public void SetPendingRemoveOnReveal()
+        {
+            pendingRemoveOnReveal = true;
+            Debug.Log("[EffectBus] 揭示后自动移除标记已设置");
+        }
+
+        /// <summary>
+        /// 消费揭示后自动移除标记。返回 true 表示需要自动移除，标记同时被清除。
+        /// </summary>
+        public bool ConsumePendingRemoveOnReveal()
+        {
+            if (!pendingRemoveOnReveal) return false;
+            pendingRemoveOnReveal = false;
+            return true;
+        }
+
+        #endregion
+
+        #region 捕获后销毁（不入手牌）
+
+        private bool pendingDestroyOnCapture = false;
+
+        /// <summary>
+        /// 标记当前捕获的鱼卡不加入手牌，直接销毁（由 Effect_DestroyOnCapture 调用）。
+        /// FishingTableManager.TryCapture 在 TriggerCaptureEffects 后通过 Consume 读取并清除此标记。
+        /// </summary>
+        public void SetPendingDestroyOnCapture()
+        {
+            pendingDestroyOnCapture = true;
+            Debug.Log("[EffectBus] 捕获后销毁标记已设置");
+        }
+
+        /// <summary>
+        /// 消费捕获后销毁标记。返回 true 表示跳过 AddCard，标记同时被清除。
+        /// </summary>
+        public bool ConsumePendingDestroyOnCapture()
+        {
+            if (!pendingDestroyOnCapture) return false;
+            pendingDestroyOnCapture = false;
+            return true;
+        }
+
+        #endregion
+
+        #region 揭示后强制捕获
+
+        private bool pendingForceCapture = false;
+
+        /// <summary>
+        /// 标记当前揭示的鱼卡需要强制捕获（由 Effect_ForceCapture 调用）。
+        /// CardPilePanel 在 OnRevealClicked 成功后通过 Consume 读取并清除此标记。
+        /// </summary>
+        public void SetPendingForceCapture()
+        {
+            pendingForceCapture = true;
+            Debug.Log("[EffectBus] 强制捕获标记已设置");
+        }
+
+        /// <summary>
+        /// 消费强制捕获标记。返回 true 表示需要强制捕获，标记同时被清除。
+        /// </summary>
+        public bool ConsumePendingForceCapture()
+        {
+            if (!pendingForceCapture) return false;
+            pendingForceCapture = false;
+            return true;
+        }
+
+        #endregion
+
+        #region 放弃后随机洗回
+
+        private bool pendingShuffleBackOnAbandon = false;
+
+        /// <summary>
+        /// 标记当前揭示的鱼卡在放弃捕获时应洗回牌堆随机位置（由 Effect_ShuffleBackOnAbandon 调用）。
+        /// CardPilePanel 在 OnAbandonClicked 时通过 Consume 读取并清除此标记。
+        /// </summary>
+        public void SetPendingShuffleBackOnAbandon()
+        {
+            pendingShuffleBackOnAbandon = true;
+            Debug.Log("[EffectBus] 放弃后洗回标记已设置");
+        }
+
+        /// <summary>
+        /// 消费放弃后洗回标记。返回 true 表示需要洗回，标记同时被清除。
+        /// </summary>
+        public bool ConsumePendingShuffleBackOnAbandon()
+        {
+            if (!pendingShuffleBackOnAbandon) return false;
+            pendingShuffleBackOnAbandon = false;
+            return true;
+        }
+
+        #endregion
+
+        #region 连锁揭示本列
+
+        private bool pendingRevealColumn = false;
+
+        /// <summary>
+        /// 标记当前揭示的鱼卡需要连锁揭示同列其他牌堆（由 Effect_RevealColumn 调用）。
+        /// CardPilePanel 在 OnRevealClicked 末尾通过 Consume 读取并清除此标记。
+        /// </summary>
+        public void SetPendingRevealColumn()
+        {
+            pendingRevealColumn = true;
+            Debug.Log("[EffectBus] 连锁揭示本列标记已设置");
+        }
+
+        /// <summary>
+        /// 消费连锁揭示标记。返回 true 表示需要连锁揭示，标记同时被清除。
+        /// </summary>
+        public bool ConsumePendingRevealColumn()
+        {
+            if (!pendingRevealColumn) return false;
+            pendingRevealColumn = false;
+            return true;
+        }
+
+        #endregion
+
+        #region 疯狂值增幅（手牌被动）
+
+        private int sanityAmplifyCount = 0;
+
+        /// <summary>
+        /// 注册一个"疯狂值增幅"来源（手牌中持续效果激活时调用）。
+        /// 引用计数，多张卡叠加。
+        /// </summary>
+        public void RegisterSanityAmplify()
+        {
+            sanityAmplifyCount++;
+            Debug.Log($"[EffectBus] 疯狂值增幅已注册，当前计数={sanityAmplifyCount}");
+        }
+
+        /// <summary>
+        /// 注销一个"疯狂值增幅"来源（手牌中持续效果停用时调用）。
+        /// </summary>
+        public void UnregisterSanityAmplify()
+        {
+            sanityAmplifyCount = Mathf.Max(0, sanityAmplifyCount - 1);
+            Debug.Log($"[EffectBus] 疯狂值增幅已注销，当前计数={sanityAmplifyCount}");
+        }
+
+        /// <summary>
+        /// 处理疯狂值变化量。仅在增加（amount > 0）时叠加增幅。
+        /// GameManager.ModifySanity 调用此方法获取最终变化量。
+        /// </summary>
+        public int ProcessSanityChange(int amount)
+        {
+            if (amount > 0 && sanityAmplifyCount > 0)
+                amount += sanityAmplifyCount;
+            return amount;
+        }
+
+        #endregion
+
+        #region 手牌鱼卡额外消耗（OnHandChanged 桥接）
+
+        private int handFishCostSourceCount = 0;
+        private System.Action handChangedForHandFishCost;
+
+        /// <summary>
+        /// 注册一个手牌鱼卡额外消耗来源（OnReveal 时由 Effect_CostPerHandFish 调用）。
+        /// 引用计数 0→1 时订阅 HandManager.OnHandChanged，使手牌变化触发 NotifyFishingModifierChanged，
+        /// 从而刷新牌堆卡面费用显示和面板捕获按钮。
+        /// </summary>
+        public void RegisterHandFishCostSource()
+        {
+            handFishCostSourceCount++;
+            if (handFishCostSourceCount == 1)
+            {
+                handChangedForHandFishCost = () => NotifyFishingModifierChanged();
+                if (HandSystem.HandManager.Instance != null)
+                    HandSystem.HandManager.Instance.OnHandChanged += handChangedForHandFishCost;
+            }
+            NotifyFishingModifierChanged();
+            Debug.Log($"[EffectBus] 手牌鱼卡额外消耗来源已注册，当前计数={handFishCostSourceCount}");
+        }
+
+        /// <summary>
+        /// 注销一个手牌鱼卡额外消耗来源（卡牌被捕获时调用）。
+        /// 引用计数 1→0 时取消订阅 HandManager.OnHandChanged。
+        /// </summary>
+        public void UnregisterHandFishCostSource()
+        {
+            handFishCostSourceCount = Mathf.Max(0, handFishCostSourceCount - 1);
+            if (handFishCostSourceCount == 0 && handChangedForHandFishCost != null)
+            {
+                if (HandSystem.HandManager.Instance != null)
+                    HandSystem.HandManager.Instance.OnHandChanged -= handChangedForHandFishCost;
+                handChangedForHandFishCost = null;
+            }
+            NotifyFishingModifierChanged();
+            Debug.Log($"[EffectBus] 手牌鱼卡额外消耗来源已注销，当前计数={handFishCostSourceCount}");
+        }
+
+        #endregion
+
+        #region 手牌条件免费捕获（OnHandChanged 桥接）
+
+        private int freeCaptureSourceCount = 0;
+        private System.Action handChangedForFreeCapture;
+
+        /// <summary>
+        /// 注册一个免费捕获来源（OnReveal 时由 Effect_FreeCaptureByHand 调用）。
+        /// 引用计数 0→1 时订阅 HandManager.OnHandChanged，使手牌变化触发 NotifyFishingModifierChanged，
+        /// 从而刷新牌堆卡面费用显示和面板捕获按钮。
+        /// </summary>
+        public void RegisterFreeCaptureSource()
+        {
+            freeCaptureSourceCount++;
+            if (freeCaptureSourceCount == 1)
+            {
+                handChangedForFreeCapture = () => NotifyFishingModifierChanged();
+                if (HandSystem.HandManager.Instance != null)
+                    HandSystem.HandManager.Instance.OnHandChanged += handChangedForFreeCapture;
+            }
+            NotifyFishingModifierChanged();
+            Debug.Log($"[EffectBus] 免费捕获来源已注册，当前计数={freeCaptureSourceCount}");
+        }
+
+        /// <summary>
+        /// 注销一个免费捕获来源（卡牌从牌堆移除时调用）。
+        /// 引用计数 1→0 时取消订阅 HandManager.OnHandChanged。
+        /// </summary>
+        public void UnregisterFreeCaptureSource()
+        {
+            freeCaptureSourceCount = Mathf.Max(0, freeCaptureSourceCount - 1);
+            if (freeCaptureSourceCount == 0 && handChangedForFreeCapture != null)
+            {
+                if (HandSystem.HandManager.Instance != null)
+                    HandSystem.HandManager.Instance.OnHandChanged -= handChangedForFreeCapture;
+                handChangedForFreeCapture = null;
+            }
+            NotifyFishingModifierChanged();
+            Debug.Log($"[EffectBus] 免费捕获来源已注销，当前计数={freeCaptureSourceCount}");
+        }
+
+        #endregion
+
+        #region 疯狂等级免费捕获（OnSanityLevelChanged 桥接）
+
+        private int sanityCaptureSourceCount = 0;
+        private UnityEngine.Events.UnityAction<SanityLevel> sanityChangedForFreeCapture;
+
+        /// <summary>
+        /// 注册一个疯狂等级免费捕获来源（OnReveal 时由 Effect_FreeCaptureOnSanity 调用）。
+        /// 引用计数 0→1 时订阅 GameManager.OnSanityLevelChanged，使疯狂等级变化触发 NotifyFishingModifierChanged，
+        /// 从而刷新牌堆卡面费用显示和面板捕获按钮。
+        /// </summary>
+        public void RegisterSanityFreeCaptureSource()
+        {
+            sanityCaptureSourceCount++;
+            if (sanityCaptureSourceCount == 1)
+            {
+                sanityChangedForFreeCapture = _ => NotifyFishingModifierChanged();
+                if (GameManager.Instance != null)
+                    GameManager.Instance.OnSanityLevelChanged.AddListener(sanityChangedForFreeCapture);
+            }
+            NotifyFishingModifierChanged();
+            Debug.Log($"[EffectBus] 疯狂等级免费捕获来源已注册，当前计数={sanityCaptureSourceCount}");
+        }
+
+        /// <summary>
+        /// 注销一个疯狂等级免费捕获来源（卡牌被捕获/移除时调用）。
+        /// 引用计数 1→0 时取消订阅 GameManager.OnSanityLevelChanged。
+        /// </summary>
+        public void UnregisterSanityFreeCaptureSource()
+        {
+            sanityCaptureSourceCount = Mathf.Max(0, sanityCaptureSourceCount - 1);
+            if (sanityCaptureSourceCount == 0 && sanityChangedForFreeCapture != null)
+            {
+                if (GameManager.Instance != null)
+                    GameManager.Instance.OnSanityLevelChanged.RemoveListener(sanityChangedForFreeCapture);
+                sanityChangedForFreeCapture = null;
+            }
+            NotifyFishingModifierChanged();
+            Debug.Log($"[EffectBus] 疯狂等级免费捕获来源已注销，当前计数={sanityCaptureSourceCount}");
         }
 
         #endregion

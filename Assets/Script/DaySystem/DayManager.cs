@@ -14,6 +14,7 @@ using ItemSystem;
 using HandSystem;
 using FishingSystem;
 using ShopSystem;
+using UISystem;
 
 namespace DaySystem
 {
@@ -54,6 +55,8 @@ namespace DaySystem
         [SerializeField] private DeclarationPanel declarationPanel;
         [SerializeField] private DayEndPanel dayEndPanel;
         [SerializeField] private GameOverPanel gameOverPanel;
+        [SerializeField] private StartPanel startPanel;
+        [SerializeField] private PausePanel pausePanel;
 
         [Header("下一天按钮")]
         [Tooltip("在 Editor 中绑定按钮的 OnClick 到 OnNextDayClicked()")]
@@ -71,6 +74,9 @@ namespace DaySystem
         [SerializeField] private int currentDay = 0;
         [SerializeField] private GamePhase currentPhase;
         [SerializeField] private DayAction currentAction;
+
+        /// <summary>标记是否已经启动过游戏，用于区分首次启动与 ResetGame 重载</summary>
+        private bool hasStartedOnce;
 
         #endregion
 
@@ -113,7 +119,8 @@ namespace DaySystem
                 // 场景重载后，将新场景中的引用移交给持久实例，再销毁自身
                 Instance.ApplySceneReferences(
                     declarationPanel, dayEndPanel, gameOverPanel,
-                    nextDayButton, nextDayButtonText, playerState);
+                    nextDayButton, nextDayButtonText, playerState,
+                    startPanel, pausePanel);
                 Destroy(gameObject);
                 return;
             }
@@ -126,12 +133,15 @@ namespace DaySystem
         /// </summary>
         private void ApplySceneReferences(
             DeclarationPanel dp, DayEndPanel dep, GameOverPanel gop,
-            Button btn, TextMeshProUGUI btnText, CharacterState state)
+            Button btn, TextMeshProUGUI btnText, CharacterState state,
+            StartPanel sp, PausePanel pp)
         {
             declarationPanel = dp;
             dayEndPanel = dep;
             gameOverPanel = gop;
             playerState = state;
+            startPanel = sp;
+            pausePanel = pp;
 
             // 从旧按钮移除监听，绑定到新按钮
             if (nextDayButton != null)
@@ -150,7 +160,10 @@ namespace DaySystem
             if (nextDayButton != null)
                 nextDayButton.onClick.AddListener(OnNextDayClicked);
 
-            StartGame();
+            if (startPanel != null && !hasStartedOnce)
+                startPanel.Show();
+            else
+                StartGame();
         }
 
         private void OnDestroy()
@@ -172,6 +185,8 @@ namespace DaySystem
         /// </summary>
         public void StartGame()
         {
+            hasStartedOnce = true;
+
             currentDay = 1;
             OnDayChanged?.Invoke(currentDay);
 
@@ -265,7 +280,9 @@ namespace DaySystem
         }
 
         /// <summary>
-        /// 执行刷新阶段：恢复体力满值，然后进入声明阶段（D1 自动跳过声明和装备准备）
+        /// 执行刷新阶段：恢复体力满值，然后进入声明阶段（D1 自动跳过声明和装备准备）。
+        /// NotifyDayRefreshCompleted 不在此处调用——延迟到装备确认后，
+        /// 确保玩家在钓鱼准备阶段调整的装备能立即生效。
         /// </summary>
         private void ExecuteRefreshPhase()
         {
@@ -278,10 +295,11 @@ namespace DaySystem
                     Debug.Log($"[DayManager] 体力已恢复满值: {playerState.CurrentHealth}/{playerState.MaxHealth}");
             }
 
-            ItemSystem.EffectBus.Instance.NotifyDayRefreshCompleted();
-
             if (currentDay == 1)
+            {
+                ItemSystem.EffectBus.Instance.NotifyDayRefreshCompleted();
                 EnterFishingDirectly();
+            }
             else
                 EnterDeclarationPhase();
         }
@@ -330,6 +348,8 @@ namespace DaySystem
 
             if (action == DayAction.Shopping)
             {
+                ItemSystem.EffectBus.Instance.NotifyDayRefreshCompleted();
+
                 if (ShopPanel.Instance != null)
                     ShopPanel.Instance.OpenPanel();
 
@@ -339,7 +359,16 @@ namespace DaySystem
             else
             {
                 if (EquipmentPanel.Instance != null)
-                    EquipmentPanel.Instance.OpenPanelForFishing();
+                {
+                    EquipmentPanel.Instance.OpenPanelForFishing(onConfirmed: () =>
+                    {
+                        ItemSystem.EffectBus.Instance.NotifyDayRefreshCompleted();
+                    });
+                }
+                else
+                {
+                    ItemSystem.EffectBus.Instance.NotifyDayRefreshCompleted();
+                }
 
                 if (showDebugInfo)
                     Debug.Log($"[DayManager] 玩家选择去钓鱼");

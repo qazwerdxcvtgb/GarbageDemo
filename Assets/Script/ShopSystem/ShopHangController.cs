@@ -107,6 +107,60 @@ namespace ShopSystem
         /// </summary>
         public IReadOnlyList<ShopHangSlot> GetSlots() => hangSlots;
 
+        /// <summary>
+        /// 商店打开时调用（在 RestoreHangState 之前）：
+        /// 遍历手牌，将带 Effect_AutoHang 的鱼卡自动挂到空悬挂槽。
+        /// 仅操作数据层，视觉由后续 RestoreHangState 统一恢复。
+        /// </summary>
+        public void AutoHangEligibleCards()
+        {
+            if (ShopManager.Instance == null || HandSystem.HandManager.Instance == null) return;
+
+            var handCards = HandSystem.HandManager.Instance.GetHandCards();
+            var toHang = new List<FishData>();
+
+            foreach (var card in handCards)
+            {
+                if (card is FishData fish && HasAutoHangEffect(fish)
+                    && !ItemSystem.Effect_AutoHang.HasBeenAutoHung(fish))
+                    toHang.Add(fish);
+            }
+
+            foreach (var fish in toHang)
+            {
+                int emptySlot = FindEmptyHangSlot();
+                if (emptySlot < 0) break;
+
+                ShopManager.Instance.TryHangFish(emptySlot, fish);
+                HandSystem.HandManager.Instance.RemoveCard(fish);
+                ItemSystem.Effect_AutoHang.MarkAutoHung(fish);
+                Debug.Log($"[ShopHangController] 自动悬挂：{fish.itemName} → 槽位 {emptySlot}");
+            }
+        }
+
+        private bool HasAutoHangEffect(FishData fish)
+        {
+            if (fish.effects == null) return false;
+            foreach (var effect in fish.effects)
+            {
+                if (effect is ItemSystem.Effect_AutoHang)
+                    return true;
+            }
+            return false;
+        }
+
+        private int FindEmptyHangSlot()
+        {
+            if (ShopManager.Instance == null) return -1;
+            var allSlots = ShopManager.Instance.GetAllHangSlots();
+            for (int i = 0; i < allSlots.Length; i++)
+            {
+                if (allSlots[i] == null)
+                    return i;
+            }
+            return -1;
+        }
+
         #endregion
 
         #region Drop Handler（场景1 & 场景2）
@@ -198,6 +252,7 @@ namespace ShopSystem
             FishData fishData = card.cardData as FishData;
 
             card.isLocked = false;
+            card.SetContextMode(FishCardSystem.CardContextMode.Hand);
 
             // 从槽位释放卡牌（清除 CrossHolderSystem 注册）
             slot.ReleaseCard();

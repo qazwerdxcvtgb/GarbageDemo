@@ -162,6 +162,11 @@ public class CharacterState : MonoBehaviour
     /// 初始最大体力值（Awake时记录，用于游戏重置时恢复）
     /// </summary>
     private int initialMaxHealth;
+    
+    /// <summary>
+    /// 上一个疯狂等级对应的体力上限基准值，用于计算级间差值
+    /// </summary>
+    private int lastSanityTargetMaxHealth;
 
     #region Unity生命周期
     
@@ -179,6 +184,22 @@ public class CharacterState : MonoBehaviour
         if (OnGoldChanged == null) OnGoldChanged = new IntValueChangedEvent();
         if (OnDepthChanged == null) OnDepthChanged = new FishDepthChangedEvent();
         if (OnBonusHealthChanged == null) OnBonusHealthChanged = new IntValueChangedEvent();
+    }
+    
+    private void Start()
+    {
+        if (GameManager.Instance != null)
+        {
+            lastSanityTargetMaxHealth = GameManager.Instance.GetMaxHealthForSanityLevel(
+                GameManager.Instance.CurrentSanityLevel);
+            GameManager.Instance.OnSanityLevelChanged.AddListener(OnSanityLevelChanged);
+        }
+    }
+    
+    private void OnDestroy()
+    {
+        if (GameManager.Instance != null)
+            GameManager.Instance.OnSanityLevelChanged.RemoveListener(OnSanityLevelChanged);
     }
     
     #endregion
@@ -312,6 +333,30 @@ public class CharacterState : MonoBehaviour
     
     #endregion
     
+    #region 疯狂等级联动（2026-04-11新增）
+
+    /// <summary>
+    /// 疯狂等级变化时调整体力上限
+    /// 采用级间差值：只增减两个等级之间的体力上限差，不影响其他来源的加成
+    /// 降级时 MaxHealth setter 会自动钳制 currentHealth 不超过新上限
+    /// </summary>
+    private void OnSanityLevelChanged(SanityLevel newLevel)
+    {
+        if (GameManager.Instance == null) return;
+        
+        int newTarget = GameManager.Instance.GetMaxHealthForSanityLevel(newLevel);
+        int delta = newTarget - lastSanityTargetMaxHealth;
+        lastSanityTargetMaxHealth = newTarget;
+        
+        if (delta != 0)
+        {
+            ModifyMaxHealth(delta);
+            Debug.Log($"[CharacterState] 疯狂等级→{newLevel}，体力上限变化: {delta:+#;-#;0}，当前上限: {maxHealth}");
+        }
+    }
+
+    #endregion
+    
     #region 游戏重置（2026-04-02新增）
 
     /// <summary>
@@ -321,6 +366,7 @@ public class CharacterState : MonoBehaviour
     public void ResetState()
     {
         bonusHealth = 0;
+        lastSanityTargetMaxHealth = 0;
         MaxHealth = initialMaxHealth;
         CurrentHealth = initialMaxHealth;
         GoldAmount = 0;

@@ -145,6 +145,29 @@ namespace FishingSystem
             SetButtonVisibility(showReveal: false, showCapture: true, showAbandon: isJustRevealed);
             UpdateCaptureButtonState();
 
+            if (ItemSystem.EffectBus.Instance != null)
+                ItemSystem.EffectBus.Instance.OnFishingModifierChanged += RefreshCaptureButton;
+
+            StartCoroutine(AddCardToHolderNextFrame(data));
+        }
+
+        /// <summary>
+        /// 强制捕获模式：显示卡面，只保留捕获按钮，隐藏放弃和取消
+        /// </summary>
+        private void ShowFaceUpForced(FishData data)
+        {
+            if (cardBackView != null) cardBackView.SetActive(false);
+            if (cardFaceView != null) cardFaceView.SetActive(true);
+
+            if (cardFaceView != null)
+                cardFaceView.transform.localScale = Vector3.one * displayScale;
+
+            SetButtonVisibility(showReveal: false, showCapture: true, showAbandon: false, showCancel: false);
+            UpdateCaptureButtonState();
+
+            if (ItemSystem.EffectBus.Instance != null)
+                ItemSystem.EffectBus.Instance.OnFishingModifierChanged += RefreshCaptureButton;
+
             StartCoroutine(AddCardToHolderNextFrame(data));
         }
 
@@ -197,6 +220,11 @@ namespace FishingSystem
             }
         }
 
+        private void RefreshCaptureButton()
+        {
+            UpdateCaptureButtonState();
+        }
+
         /// <summary>
         /// 根据玩家当前体力更新捕获按钮的可交互状态：体力不足时置灰
         /// </summary>
@@ -208,13 +236,13 @@ namespace FishingSystem
             captureButton.interactable = canCapture;
         }
 
-        private void SetButtonVisibility(bool showReveal, bool showCapture, bool showAbandon)
+        private void SetButtonVisibility(bool showReveal, bool showCapture, bool showAbandon, bool? showCancel = null)
         {
             if (revealButton  != null) revealButton.gameObject.SetActive(showReveal);
             if (captureButton != null) captureButton.gameObject.SetActive(showCapture);
             if (abandonButton != null) abandonButton.gameObject.SetActive(showAbandon);
-            // 取消按钮与放弃按钮互斥：放弃显示时隐藏取消
-            if (cancelButton  != null) cancelButton.gameObject.SetActive(!showAbandon);
+            bool cancelVisible = showCancel ?? !showAbandon;
+            if (cancelButton  != null) cancelButton.gameObject.SetActive(cancelVisible);
         }
 
         private void ClearDisplayCard()
@@ -248,9 +276,33 @@ namespace FishingSystem
 
             targetPile.Reveal();
 
-            ClearDisplayCard();
-            // isJustRevealed=true：隐藏取消，显示放弃
-            ShowFaceUp(currentTopCard, isJustRevealed: true);
+            bool columnReveal = ItemSystem.EffectBus.Instance.ConsumePendingRevealColumn();
+
+            bool autoRemove = ItemSystem.EffectBus.Instance.ConsumePendingRemoveOnReveal();
+            if (autoRemove)
+            {
+                targetPile.RemoveTopCard();
+                ClearDisplayCard();
+                ShowFaceUp(currentTopCard, isJustRevealed: false);
+                if (captureButton != null) captureButton.interactable = false;
+            }
+            else
+            {
+                bool forceCapture = ItemSystem.EffectBus.Instance.ConsumePendingForceCapture();
+                if (forceCapture && FishingTableManager.Instance.CanAffordCapture(currentTopCard))
+                {
+                    ClearDisplayCard();
+                    ShowFaceUpForced(currentTopCard);
+                }
+                else
+                {
+                    ClearDisplayCard();
+                    ShowFaceUp(currentTopCard, isJustRevealed: true);
+                }
+            }
+
+            if (columnReveal && FishingTableManager.Instance != null)
+                FishingTableManager.Instance.StartColumnReveal(targetPile);
         }
 
         private void OnCaptureClicked()
@@ -277,6 +329,19 @@ namespace FishingSystem
         private void OnAbandonClicked()
         {
             Debug.Log("[CardPilePanel] 放弃捕获，抽取杂鱼卡");
+
+            bool shuffleBack = ItemSystem.EffectBus.Instance != null
+                && ItemSystem.EffectBus.Instance.ConsumePendingShuffleBackOnAbandon();
+            if (shuffleBack && targetPile != null)
+            {
+                FishData card = targetPile.RemoveTopCard();
+                if (card != null)
+                {
+                    targetPile.InsertCardAtRandom(card);
+                    Debug.Log($"[CardPilePanel] 鱼卡 {card.itemName} 已洗回牌堆随机位置");
+                }
+            }
+
             if (FishingTableManager.Instance != null)
                 FishingTableManager.Instance.TryAbandon(targetPile);
             ClosePanel();
@@ -289,6 +354,11 @@ namespace FishingSystem
 
         private void ClosePanel()
         {
+            if (ItemSystem.EffectBus.Instance != null)
+            {
+                ItemSystem.EffectBus.Instance.OnFishingModifierChanged -= RefreshCaptureButton;
+                ItemSystem.EffectBus.Instance.ClearRevealCostReduction();
+            }
             ClearDisplayCard();
             Destroy(gameObject);
         }

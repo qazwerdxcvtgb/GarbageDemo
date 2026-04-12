@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47ca162ab9d0bfb4d8f093d621249eb2, type: 3}
+  m_Name: "\u523A\u8C5A"
+  m_EditorClassIdentifier: 
+  itemName: "\u523A\u8C5A "
+  icon: {fileID: 0}
+  description: "\u63ED\u793A\uFF1A\u4EC5\u5728\u672C\u6B21\u6355\u83B7\u4E2D\uFF0C\u4F53\u529B\u6D88\u8017\u4E3A2\n\u98DF\u7528\uFF1A\u51CF\u5C114\u75AF\u72C2\u503C\u6216\u589E\u52A02\u75AF\u72C2\u503C\n"
+  value: 4
+  weight: 1
+  category: 0
+  allowedUseContext: -1
+  depth: 1
+  size: 0
+  staminaCost: 4
+  fishType: 0
+  effects:
+  - rid: 2986597118293311490
+  - rid: 2986597118293311491
+  references:
+    version: 2
+    RefIds:
+    - rid: 2986597118293311490
+      type: {class: Effect_RevealCostReduction, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 0
+        amount: 2
+    - rid: 2986597118293311491
+      type: {class: Effect_RandomChoice, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        candidates:
+        - rid: 2986597118293311492
+        - rid: 2986597118293311493
+    - rid: 2986597118293311492
+      type: {class: Effect_ModifySanity, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: -4
+    - rid: 2986597118293311493
+      type: {class: Effect_ModifySanity, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 2
+        amount: 2

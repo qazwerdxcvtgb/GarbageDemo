@@ -189,6 +189,19 @@ namespace FishingSystem
         }
 
         /// <summary>
+        /// 将卡牌插入牌堆的随机位置（含顶部和底部），状态强制为 FaceDown。
+        /// 用于放弃捕获后将鱼卡洗回牌堆。
+        /// </summary>
+        public void InsertCardAtRandom(FishData card)
+        {
+            if (card == null) return;
+            int index = UnityEngine.Random.Range(0, cards.Count + 1);
+            cards.Insert(index, card);
+            currentState = PileState.FaceDown;
+            RefreshDisplay();
+        }
+
+        /// <summary>
         /// 偷看顶部卡牌（只读，不移除不改变状态）。
         /// skipRevealed=true 时跳过已揭示的顶牌（FaceUp 状态下从第二张开始）。
         /// </summary>

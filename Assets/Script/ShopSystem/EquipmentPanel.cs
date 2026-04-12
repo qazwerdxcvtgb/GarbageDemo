@@ -59,6 +59,9 @@ public class EquipmentPanel : MonoBehaviour
     /// <summary>外部锁定关闭状态（偷看牌堆等效果使用时禁止打开面板）</summary>
     private bool isOpenLocked;
 
+    /// <summary>钓鱼准备模式关闭后的回调（装备确认后触发每日刷新等）</summary>
+    private System.Action onFishingConfirmedCallback;
+
     /// <summary>面板下所有装备槽位（Awake 中自动收集，不依赖 Inspector 赋值）</summary>
     private EquipmentSlotUI[] equipSlots;
 
@@ -166,9 +169,12 @@ public class EquipmentPanel : MonoBehaviour
     /// 由 DayManager.OnDeclarationChoice(Fishing) 调用。
     /// 显示全屏遮罩和确认按钮，保留关闭按钮。
     /// </summary>
-    public void OpenPanelForFishing()
+    /// <param name="onConfirmed">面板关闭时的回调，用于延迟触发装备每日刷新效果</param>
+    public void OpenPanelForFishing(System.Action onConfirmed = null)
     {
-        if (isOpen || isOpenLocked) return;
+        if (isOpenLocked) return;
+
+        onFishingConfirmedCallback = onConfirmed;
 
         allowRemoveAndReplace = true;
 
@@ -181,20 +187,23 @@ public class EquipmentPanel : MonoBehaviour
         // 解锁已有槽位卡的拖拽
         SetSlotCardsLocked(false);
 
-        isOpen = true;
-
-        if (panelRoot != null)
-            panelRoot.SetActive(true);
-
-        if (panelRect != null)
+        if (!isOpen)
         {
-            panelRect.DOKill();
-            float offscreenX = openPosition.x + panelRect.rect.width;
-            panelRect.anchoredPosition = new Vector2(offscreenX, openPosition.y);
-            panelRect.DOAnchorPos(openPosition, animDuration).SetEase(animEase);
-        }
+            isOpen = true;
 
-        handPanelUI?.LockExpanded();
+            if (panelRoot != null)
+                panelRoot.SetActive(true);
+
+            if (panelRect != null)
+            {
+                panelRect.DOKill();
+                float offscreenX = openPosition.x + panelRect.rect.width;
+                panelRect.anchoredPosition = new Vector2(offscreenX, openPosition.y);
+                panelRect.DOAnchorPos(openPosition, animDuration).SetEase(animEase);
+            }
+
+            handPanelUI?.LockExpanded();
+        }
 
         Debug.Log("[EquipmentPanel] 面板打开（钓鱼准备模式 - 解锁取下/替换）");
     }
@@ -207,6 +216,7 @@ public class EquipmentPanel : MonoBehaviour
         if (!isOpen) return;
         isOpen = false;
 
+        bool wasFishingMode = allowRemoveAndReplace;
         allowRemoveAndReplace = false;
 
         // 关闭时锁定槽位卡的拖拽
@@ -233,6 +243,12 @@ public class EquipmentPanel : MonoBehaviour
         }
 
         handPanelUI?.UnlockExpanded();
+
+        if (wasFishingMode)
+        {
+            onFishingConfirmedCallback?.Invoke();
+            onFishingConfirmedCallback = null;
+        }
 
         Debug.Log("[EquipmentPanel] 面板关闭");
     }

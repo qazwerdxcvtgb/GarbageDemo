@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -40,26 +38,11 @@ namespace FishCardSystem
                 valueText.text = data.value.ToString();
 
             if (effectsText != null)
-                effectsText.text = GenerateEffectDescription(data.effects);
+                effectsText.text = data.description ?? "";
 
             if (backgroundImage != null && data.icon != null)
                 backgroundImage.sprite = data.icon;
         }
 
-        /// <summary>
-        /// 生成 OnUse 效果描述文本
-        /// </summary>
-        private string GenerateEffectDescription(List<EffectBase> effects)
-        {
-            if (effects == null || effects.Count == 0)
-                return "无效果";
-
-            var useEffects = effects
-                .Where(e => e != null && e.trigger == EffectTrigger.OnUse)
-                .Select(e => e.GetFullDescription())
-                .ToList();
-
-            return useEffects.Count > 0 ? string.Join("\n", useEffects) : "无效果";
-        }
     }
 }

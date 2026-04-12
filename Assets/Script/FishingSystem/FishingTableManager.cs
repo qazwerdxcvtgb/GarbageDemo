@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -178,15 +179,37 @@ namespace FishingSystem
 
             playerState.ModifyHealth(-finalCost);
 
+            // 先从牌堆移除被捕获的牌，使捕获效果看到的牌堆状态是"捕获后"的
+            // （如 Effect_RemoveAllPileTops 需要操作的是被捕获牌下方的卡牌）
+            pile.RemoveTopCard();
+
             if (!ItemSystem.EffectBus.Instance.ShouldIgnoreCaptureEffects)
                 fishData.TriggerCaptureEffects();
 
-            if (HandManager.Instance != null)
+            bool destroyOnCapture = ItemSystem.EffectBus.Instance.ConsumePendingDestroyOnCapture();
+            if (!destroyOnCapture && HandManager.Instance != null)
                 HandManager.Instance.AddCard(fishData);
 
-            pile.RemoveTopCard();
-
             ItemSystem.EffectBus.Instance.NotifyFishCaptured();
+
+            if (fishData.effects != null)
+            {
+                foreach (var e in fishData.effects)
+                {
+                    if (e is ItemSystem.Effect_FreeCaptureByHand)
+                    {
+                        ItemSystem.EffectBus.Instance.UnregisterFreeCaptureSource();
+                    }
+                    else if (e is ItemSystem.Effect_FreeCaptureOnSanity)
+                    {
+                        ItemSystem.EffectBus.Instance.UnregisterSanityFreeCaptureSource();
+                    }
+                    else if (e is ItemSystem.Effect_CostPerHandFish)
+                    {
+                        ItemSystem.EffectBus.Instance.UnregisterHandFishCostSource();
+                    }
+                }
+            }
 
             if (showDebugInfo)
                 Debug.Log($"[FishingTableManager] 捕获成功：{fishData.itemName}，剩余体力={playerState.CurrentHealth}");
@@ -481,6 +504,82 @@ namespace FishingSystem
             if (showDebugInfo)
                 Debug.Log($"[FishingTableManager] 按序号纵抽 poolIndex={poolIndex}：抽取 {result.Count} 张");
             return result;
+        }
+
+        #endregion
+
+        #region 连锁揭示本列
+
+        /// <summary>
+        /// 启动同列连锁揭示协程。
+        /// 查找 sourcePile 所在列（同 poolIndex）的其他 FaceDown 牌堆，依次翻面并触发过滤后的 OnReveal 效果。
+        /// </summary>
+        public void StartColumnReveal(CardPile sourcePile)
+        {
+            var config = GetPileConfig(sourcePile);
+            if (config == null) return;
+
+            var columnPiles = GetPilesByPoolIndex(config.Value.poolIndex);
+            var targets = new List<CardPile>();
+            foreach (var p in columnPiles)
+            {
+                if (p != sourcePile && p.State == PileState.FaceDown && p.CardCount > 0)
+                    targets.Add(p);
+            }
+
+            if (targets.Count == 0) return;
+            StartCoroutine(ColumnRevealCoroutine(targets));
+        }
+
+        private IEnumerator ColumnRevealCoroutine(List<CardPile> targets)
+        {
+            const float delay = 0.4f;
+
+            foreach (var pile in targets)
+            {
+                if (pile == null || pile.State != PileState.FaceDown || pile.CardCount == 0)
+                    continue;
+
+                pile.Reveal();
+
+                FishData topCard = pile.GetTopCard();
+                if (topCard != null && !EffectBus.Instance.ShouldIgnoreRevealEffects)
+                    TriggerChainRevealEffects(topCard);
+
+                yield return new WaitForSeconds(delay);
+            }
+
+            if (showDebugInfo)
+                Debug.Log("[FishingTableManager] 连锁揭示本列完成");
+        }
+
+        /// <summary>
+        /// 触发连锁揭示的 OnReveal 效果（过滤掉需要面板消费的标记型/折扣型效果，防止递归）。
+        /// </summary>
+        private void TriggerChainRevealEffects(FishData fishData)
+        {
+            if (fishData.effects == null) return;
+
+            var context = new EffectContext
+            {
+                Target = GameObject.Find("player")
+            };
+
+            foreach (var effect in fishData.effects)
+            {
+                if (effect == null || effect.trigger != EffectTrigger.OnReveal) continue;
+
+                if (effect is Effect_RemoveOnReveal) continue;
+                if (effect is Effect_ForceCapture) continue;
+                if (effect is Effect_ShuffleBackOnAbandon) continue;
+                if (effect is Effect_RevealCostReduction) continue;
+                if (effect is Effect_RevealColumn) continue;
+
+                effect.Execute(context);
+
+                if (showDebugInfo)
+                    Debug.Log($"[FishingTableManager] 连锁揭示效果：{fishData.itemName} → {effect.DisplayName}");
+            }
         }
 
         #endregion

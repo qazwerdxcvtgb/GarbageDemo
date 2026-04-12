@@ -33,7 +33,9 @@ namespace ShopSystem
         /// </summary>
         public bool CanAccept(ItemCard card)
         {
-            if (card == null || !(card.cardData is FishData)) return false;
+            if (card == null || !(card.cardData is FishData fish)) return false;
+            if (ItemSystem.Effect_NoSellNoHang.HasEffect(fish))
+                return false;
             if (IsOccupied && (ItemSystem.EffectBus.Instance == null || !ItemSystem.EffectBus.Instance.AllowHangReplace))
                 return false;
             return true;
@@ -146,7 +148,10 @@ namespace ShopSystem
 
             // 恢复时同步设置视觉卡层级（与拖拽悬挂路径保持一致）
             // 注：FishCard.Start 在下一帧执行，此处延迟一帧确保 cardVisual 已初始化
-            StartCoroutine(SetVisualSortingNextFrame(fishCard));
+            if (gameObject.activeInHierarchy)
+                StartCoroutine(SetVisualSortingNextFrame(fishCard));
+            else
+                Debug.LogWarning($"[ShopHangSlot] {gameObject.name} 不活跃，跳过视觉层级协程（{data.itemName}）");
 
             RefreshVisual();
             Debug.Log($"[ShopHangSlot] 恢复悬挂卡牌：{data.itemName}");

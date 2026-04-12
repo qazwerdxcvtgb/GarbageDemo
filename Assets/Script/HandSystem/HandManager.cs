@@ -82,6 +82,7 @@ namespace HandSystem
             }
 
             handCards.Add(card);
+            ActivateWhileInHandEffects(card);
             Debug.Log($"[HandManager] 添加卡牌到手牌: {card.itemName}，当前手牌数量: {handCards.Count}");
 
             // 先触发通用变化事件（HandPanelUI 借此更新槽位数量）
@@ -103,6 +104,7 @@ namespace HandSystem
             }
 
             handCards.Add(card);
+            ActivateWhileInHandEffects(card);
             Debug.Log($"[HandManager] 添加卡牌数据到手牌(无视觉): {card.itemName}，当前手牌数量: {handCards.Count}");
 
             // 只通知槽位数量更新，不创建新视觉卡
@@ -122,6 +124,7 @@ namespace HandSystem
                 return false;
             }
 
+            DeactivateWhileInHandEffects(card);
             bool removed = handCards.Remove(card);
             if (removed)
             {
@@ -170,12 +173,38 @@ namespace HandSystem
         /// </summary>
         public void ClearHand()
         {
+            foreach (var card in handCards)
+                DeactivateWhileInHandEffects(card);
             int count = handCards.Count;
             handCards.Clear();
             Debug.Log($"[HandManager] 清空所有手牌，已移除{count}张卡牌");
 
             // 触发手牌变化事件
             OnHandChanged?.Invoke();
+        }
+
+        #endregion
+
+        #region WhileInHand 被动效果
+
+        private void ActivateWhileInHandEffects(ItemData card)
+        {
+            var effects = card.GetEffects();
+            if (effects == null) return;
+            var ctx = new EffectContext { Target = GameObject.Find("player") };
+            foreach (var e in effects)
+                if (e != null && e.trigger == EffectTrigger.WhileInHand)
+                    e.Activate(ctx);
+        }
+
+        private void DeactivateWhileInHandEffects(ItemData card)
+        {
+            var effects = card.GetEffects();
+            if (effects == null) return;
+            var ctx = new EffectContext { Target = GameObject.Find("player") };
+            foreach (var e in effects)
+                if (e != null && e.trigger == EffectTrigger.WhileInHand)
+                    e.Deactivate(ctx);
         }
 
         #endregion

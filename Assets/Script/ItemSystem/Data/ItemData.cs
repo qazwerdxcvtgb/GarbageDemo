@@ -60,6 +60,12 @@ namespace ItemSystem
         }
         
         /// <summary>
+        /// 获取此卡牌的 EffectBase 列表。默认返回 null（无效果）。
+        /// 子类（FishData / TrashData / ConsumableData）override 返回各自的 effects 字段。
+        /// </summary>
+        public virtual List<EffectBase> GetEffects() => null;
+
+        /// <summary>
         /// 共享的"使用"前检查逻辑：阶段 → 场合 → OnUse 效果存在性 → 逐效果 CanExecute。
         /// 供 FishData / TrashData / ConsumableData 的 CanUse override 调用。
         /// </summary>

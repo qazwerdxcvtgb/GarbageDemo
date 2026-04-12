@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47ca162ab9d0bfb4d8f093d621249eb2, type: 3}
+  m_Name: "\u5BC4\u751F\u5E7C\u866B"
+  m_EditorClassIdentifier: 
+  itemName: "\u5BC4\u751F\u5E7C\u866B "
+  icon: {fileID: 0}
+  description: "\u6301\u6709\u5361\u724C\u65F6\uFF0C\u589E\u52A0\u75AF\u72C2\u503C\u591A1\u70B9\n"
+  value: 1
+  weight: 1
+  category: 0
+  allowedUseContext: -1
+  depth: 0
+  size: 0
+  staminaCost: 0
+  fishType: 0
+  effects:
+  - rid: 2986597086892130342
+  references:
+    version: 2
+    RefIds:
+    - rid: 2986597086892130342
+      type: {class: Effect_SanityAmplify, ns: ItemSystem, asm: Assembly-CSharp}
+      data:
+        trigger: 6

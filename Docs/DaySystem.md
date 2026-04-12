@@ -39,7 +39,7 @@ D6结束:    → GameOver(游戏结束面板)
 
 ### Refresh 阶段（每天执行，系统自动）
 
-将当前体力恢复为最大值。
+将当前体力恢复为最大值（`RestoreFullHealth`）。装备每日被动效果（`NotifyDayRefreshCompleted`）**不在此处触发**，而是延迟到装备确认后，确保玩家在钓鱼准备阶段调整的装备能当天生效。
 
 ### Declaration 阶段（等待玩家选择）
 
@@ -47,8 +47,9 @@ D6结束:    → GameOver(游戏结束面板)
 
 ### Action 阶段（玩家自由行动）
 
-- 选择商店：自动打开 ShopPanel
-- 选择钓鱼：正常钓鱼流程
+- 选择商店：立即触发 `NotifyDayRefreshCompleted`（装备每日被动生效），自动打开 ShopPanel
+- 选择钓鱼：打开装备面板（钓鱼准备模式），玩家确认后触发 `NotifyDayRefreshCompleted`，开始钓鱼
+- D1 自动跳过声明和装备准备，`NotifyDayRefreshCompleted` 在 Refresh 阶段末尾立即触发
 - 显示"下一天"按钮（D6 显示为"结束"）
 
 ### DayEnd 阶段（D1-D5，过渡面板）

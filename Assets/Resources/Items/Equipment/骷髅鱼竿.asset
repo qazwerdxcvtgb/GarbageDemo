@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: "\u9AB7\u9AC5\u9C7C\u7AFF "
   icon: {fileID: 0}
-  description: 
+  description: "\u53EF\u4EE5\u65E0\u89C6\u9C7C\u7684\u6355\u83B7\u80FD\u529B\n"
   value: 0
   weight: 1
   category: 3

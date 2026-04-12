@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47ca162ab9d0bfb4d8f093d621249eb2, type: 3}
+  m_Name: "\u50E7\u5E3D\u6C34\u6BCD"
+  m_EditorClassIdentifier: 
+  itemName: "\u50E7\u5E3D\u6C34\u6BCD "
+  icon: {fileID: 0}
+  description: 
+  value: 1
+  weight: 1
+  category: 0
+  allowedUseContext: -1
+  depth: 0
+  size: 0
+  staminaCost: 0
+  fishType: 0
+  effects: []
+  references:
+    version: 2
+    RefIds: []

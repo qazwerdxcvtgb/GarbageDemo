@@ -278,6 +278,8 @@ namespace ShopSystem
             for (int i = 0; i < hangSlots.Length; i++)
                 hangSlots[i] = null;
 
+            ItemSystem.Effect_AutoHang.ResetAutoHungState();
+
             isPoolInitialized = false;
             Debug.Log("[ShopManager] 商店数据已重置");
         }

@@ -1,9 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using System.Collections.Generic;
 using ItemSystem;
-using System.Collections;
 
 namespace FishCardSystem
 {
@@ -88,7 +86,7 @@ namespace FishCardSystem
                 sizeText.text = GetSizeText(data.size);
 
             if (effectsText != null)
-                effectsText.text = GenerateEffectDescription(data.effects);
+                effectsText.text = data.description ?? "";
 
             // 更新图标
             if (fishIcon != null && data.icon != null)
@@ -120,9 +118,9 @@ namespace FishCardSystem
         {
             switch (depth)
             {
-                case FishDepth.Depth1: return "浅水层";
-                case FishDepth.Depth2: return "中层";
-                case FishDepth.Depth3: return "深水层";
+                case FishDepth.Depth1: return "深度1";
+                case FishDepth.Depth2: return "深度2";
+                case FishDepth.Depth3: return "深度3";
                 default: return depth.ToString();
             }
         }
@@ -154,24 +152,5 @@ namespace FishCardSystem
             }
         }
 
-        /// <summary>
-        /// 生成效果描述文本
-        /// </summary>
-        private string GenerateEffectDescription(List<EffectBase> effects)
-        {
-            if (effects == null || effects.Count == 0)
-                return "无效果";
-
-            List<string> descriptions = new List<string>();
-            foreach (var effect in effects)
-            {
-                if (effect != null)
-                {
-                    descriptions.Add(effect.GetFullDescription());
-                }
-            }
-
-            return string.Join("\n", descriptions);
-        }
     }
 }

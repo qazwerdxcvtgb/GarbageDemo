@@ -56,6 +56,9 @@ namespace ShopSystem
             if (HandManager.Instance != null)
                 HandManager.Instance.OnHandChanged += OnHandChangedRefresh;
 
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnSanityLevelChanged.AddListener(OnSanityLevelChangedRefresh);
+
             RefreshSubscriptions();
             RecalculateTotalPrice();
         }
@@ -72,6 +75,9 @@ namespace ShopSystem
 
             if (HandManager.Instance != null)
                 HandManager.Instance.OnHandChanged -= OnHandChangedRefresh;
+
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnSanityLevelChanged.RemoveListener(OnSanityLevelChangedRefresh);
 
             // 取消所有手牌选中状态
             if (cardHolder != null)
@@ -119,19 +125,53 @@ namespace ShopSystem
             RecalculateTotalPrice();
         }
 
+        private void OnSanityLevelChangedRefresh(SanityLevel _)
+        {
+            if (!isShopOpen) return;
+            RecalculateTotalPrice();
+        }
+
         #endregion
 
         #region Price Calculation
+
+        /// <summary>
+        /// 计算单张卡牌经疯狂等级修正后的售价
+        /// 仅 FishData 受疯狂等级影响，其他类型返回基础价值
+        /// </summary>
+        private int GetAdjustedCardValue(ItemCard card)
+        {
+            if (card.cardData == null) return 0;
+
+            int baseValue = card.cardData.value;
+
+            if (card.cardData is FishData fishData && GameManager.Instance != null)
+            {
+                bool isStable = fishData.effects != null
+                    && fishData.effects.Exists(e => e is Effect_StablePrice);
+                if (isStable) return baseValue;
+
+                int modifier = GameManager.Instance.GetSanityGoldModifier(fishData.fishType);
+                return Mathf.Max(0, baseValue + modifier);
+            }
+
+            return baseValue;
+        }
 
         private void RecalculateTotalPrice()
         {
             if (cardHolder == null) { UpdateSellUI(0); return; }
 
             int total = cardHolder.GetCards()
-                .Where(c => c.selected && c.cardData != null)
-                .Sum(c => c.cardData.value);
+                .Where(c => c.selected && c.cardData != null && IsSellable(c))
+                .Sum(c => GetAdjustedCardValue(c));
 
             UpdateSellUI(total);
+        }
+
+        private bool IsSellable(ItemCard card)
+        {
+            return !(card.cardData is FishData fish && Effect_NoSellNoHang.HasEffect(fish));
         }
 
         private void UpdateSellUI(int total)
@@ -162,12 +202,12 @@ namespace ShopSystem
             if (cardHolder == null || playerState == null) return;
 
             List<ItemCard> selected = cardHolder.GetCards()
-                .Where(c => c.selected)
+                .Where(c => c.selected && IsSellable(c))
                 .ToList();
 
             if (selected.Count == 0) return;
 
-            int total = selected.Sum(c => c.cardData != null ? c.cardData.value : 0);
+            int total = selected.Sum(c => GetAdjustedCardValue(c));
 
             foreach (var card in selected)
             {

@@ -2,12 +2,13 @@
 /// 游戏管理器
 /// 使用单例模式管理全局游戏事件和状态
 /// 创建日期：2026-01-19
-/// 最后更新：2026-01-20（添加疯狂值系统）
+/// 最后更新：2026-04-11（添加疯狂等级机制：金币修正、体力上限查询）
 /// </summary>
 
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using ItemSystem;
 using UnityEngine.Events;
 
 /// <summary>
@@ -163,8 +164,11 @@ public class GameManager : MonoBehaviour
     /// <param name="amount">变化量（正数为增加，负数为减少）</param>
     public void ModifySanity(int amount)
     {
-        SanityValue += amount;
-        Debug.Log($"[GameManager] 疯狂值修改: {amount:+#;-#;0}，当前疯狂值: {sanityValue}");
+        int finalAmount = (EffectBus.Instance != null)
+            ? EffectBus.Instance.ProcessSanityChange(amount)
+            : amount;
+        SanityValue += finalAmount;
+        Debug.Log($"[GameManager] 疯狂值修改: {finalAmount:+#;-#;0}，当前疯狂值: {sanityValue}");
     }
     
     /// <summary>
@@ -248,6 +252,52 @@ public class GameManager : MonoBehaviour
             case SanityLevel.Level4: return "疯狂值:10-12";
             case SanityLevel.Level5: return "疯狂值:13+";
             default: return "未知等级";
+        }
+    }
+    
+    /// <summary>
+    /// 根据当前疯狂等级获取卖鱼金币修正值
+    /// 纯净鱼在低疯狂时加价、高疯狂时减价；污秽鱼反之
+    /// </summary>
+    /// <param name="fishType">鱼类类型（纯净/污秽）</param>
+    /// <returns>金币修正值（正为加价，负为减价，0为无修正）</returns>
+    public int GetSanityGoldModifier(FishType fishType)
+    {
+        switch (currentSanityLevel)
+        {
+            case SanityLevel.Level0:
+                return fishType == FishType.Pure ? 2 : -2;
+            case SanityLevel.Level1:
+                return fishType == FishType.Pure ? 1 : -1;
+            case SanityLevel.Level2:
+                return fishType == FishType.Pure ? 1 : 0;
+            case SanityLevel.Level3:
+                return fishType == FishType.Corrupted ? 1 : 0;
+            case SanityLevel.Level4:
+                return fishType == FishType.Pure ? -1 : 1;
+            case SanityLevel.Level5:
+                return fishType == FishType.Pure ? -2 : 2;
+            default:
+                return 0;
+        }
+    }
+    
+    /// <summary>
+    /// 获取指定疯狂等级对应的体力上限基准值
+    /// </summary>
+    /// <param name="level">疯狂等级</param>
+    /// <returns>该等级的体力上限基准值</returns>
+    public int GetMaxHealthForSanityLevel(SanityLevel level)
+    {
+        switch (level)
+        {
+            case SanityLevel.Level0: return 12;
+            case SanityLevel.Level1: return 15;
+            case SanityLevel.Level2: return 15;
+            case SanityLevel.Level3: return 18;
+            case SanityLevel.Level4: return 21;
+            case SanityLevel.Level5: return 24;
+            default: return 12;
         }
     }
     

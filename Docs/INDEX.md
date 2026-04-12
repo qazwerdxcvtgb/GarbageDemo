@@ -1,6 +1,6 @@
 # 开发文档索引
 
-> 更新：2026-04-10  
+> 更新：2026-04-11  
 > **使用说明**：新 agent 先读 [ProjectOverview](ProjectOverview.md) 了解项目全貌，再按本索引查找具体系统文档。  
 > **文档规范**：修改文档时务必遵循 [DocStandards](DocStandards.md)。
 
@@ -15,6 +15,7 @@
 | 天数循环 / 每日结算 / 重置 | [DaySystem](DaySystem.md) | DayManager |
 | 声明阶段 / 游戏结束 | [DaySystem](DaySystem.md) | DeclarationPanel / GameOverPanel |
 | 全局疯狂值 / 空牌统计 | [CoreSystem](CoreSystem.md) | GameManager |
+| 疯狂等级售价修正 / 体力上限联动 | [CoreSystem](CoreSystem.md) | GameManager 疯狂值 |
 | 玩家体力 / 金币 / 深度 | [CoreSystem](CoreSystem.md) | CharacterState |
 | 全局事件类型定义 | [CoreSystem](CoreSystem.md) | GameEvents |
 | 物品数据结构（鱼/装备/消耗品） | [ItemSystem](ItemSystem.md) | 数据类 |
@@ -29,6 +30,27 @@
 | 增加玩家深度效果 | [ItemSystem](ItemSystem.md) | Effect_IncreaseDepth |
 | 修改金币效果 | [ItemSystem](ItemSystem.md) | Effect_ModifyGold |
 | 随机选择效果（效果组合） | [ItemSystem](ItemSystem.md) | Effect_RandomChoice |
+| 揭示后自动移除效果 | [ItemSystem](ItemSystem.md) | Effect_RemoveOnReveal |
+| 捕获消耗小型鱼效果 | [ItemSystem](ItemSystem.md) | Effect_ConsumeSmallFish |
+| 空效果占位 | [ItemSystem](ItemSystem.md) | Effect_Nothing |
+| 手牌被动疯狂值增幅 | [ItemSystem](ItemSystem.md) | Effect_SanityAmplify |
+| WhileInHand 触发机制 | [ItemSystem](ItemSystem.md) | EffectTrigger / EffectBase / HandManager |
+| 揭示体力折扣效果 | [ItemSystem](ItemSystem.md) | Effect_RevealCostReduction |
+| 污秽鱼计数增疯狂值 | [ItemSystem](ItemSystem.md) | Effect_CorruptedFishSanity |
+| 永久修改体力上限 | [ItemSystem](ItemSystem.md) | Effect_ModifyMaxHealth |
+| 捕获后销毁不入手牌 | [ItemSystem](ItemSystem.md) | Effect_DestroyOnCapture |
+| 随机失去手牌消耗品 | [ItemSystem](ItemSystem.md) | Effect_LoseRandomConsumable |
+| 移除所有牌堆顶牌 | [ItemSystem](ItemSystem.md) | Effect_RemoveAllPileTops |
+| 手牌条件免费捕获 | [ItemSystem](ItemSystem.md) | Effect_FreeCaptureByHand |
+| 疯狂等级免费捕获 | [ItemSystem](ItemSystem.md) | Effect_FreeCaptureOnSanity |
+| 揭示后强制捕获 | [ItemSystem](ItemSystem.md) | Effect_ForceCapture |
+| 商店打开自动悬挂 | [ItemSystem](ItemSystem.md) | Effect_AutoHang |
+| 不可出售不可悬挂 | [ItemSystem](ItemSystem.md) | Effect_NoSellNoHang |
+| 售价免疫疯狂等级修正 | [ItemSystem](ItemSystem.md) | Effect_StablePrice |
+| 手牌中污秽鱼捕获折扣 | [ItemSystem](ItemSystem.md) | Effect_CorruptedFishDiscount |
+| 放弃捕获后洗回牌堆随机位置 | [ItemSystem](ItemSystem.md) | Effect_ShuffleBackOnAbandon |
+| 连锁揭示同列牌堆 | [ItemSystem](ItemSystem.md) | Effect_RevealColumn |
+| 手牌鱼数额外体力消耗 | [ItemSystem](ItemSystem.md) | Effect_CostPerHandFish |
 | 装备临时体力机制 | [CoreSystem](CoreSystem.md) | CharacterState |
 | 物品池（抽取鱼/物品） | [ItemSystem](ItemSystem.md) | ItemPool |
 | 手牌数据管理 | [HandSystem](HandSystem.md) | HandManager |
@@ -43,6 +65,7 @@
 | 体力 / 金币 / 疯狂显示 | [UISystem](UISystem.md) | 状态显示 UI |
 | 深度指示器 | [UISystem](UISystem.md) | DepthIndicatorUI |
 | 商店面板（售卖/购买/悬挂） | [ShopSystem](ShopSystem.md) | 全文 |
+| 售卖金币修正（疯狂等级） | [ShopSystem](ShopSystem.md) | ShopSellController 售卖规则 |
 | 装备面板 / 装备槽 | [ShopSystem](ShopSystem.md) | EquipmentPanel |
 
 ---
@@ -128,6 +151,7 @@ DayManager ──→ ShopPanel（声明阶段开商店）
 DayManager ──→ ItemPool / HandManager / GameManager / ShopManager（重置）
 
 GameManager ←── ItemSystem.Effects（ModifySanity）
+CharacterState ←── GameManager（OnSanityLevelChanged → 体力上限级间差值）
 CharacterState ←── ItemSystem.Effects（ModifyHealth）
 
 ItemPool ──→ FishingTableManager（按深度抽牌）
@@ -137,7 +161,7 @@ FishingTableManager ──→ ShopManager（放弃时 DrawTrash）
 HandManager ──→ HandPanelUI（OnHandChanged 刷新）
 
 ShopPanel ──→ ShopSellController + ShopBuyController + ShopHangController
-ShopSellController ──→ HandManager + CharacterState
+ShopSellController ──→ HandManager + CharacterState + GameManager（售价修正）
 ShopHangController ──→ ShopManager + HandManager + CrossHolderSystem
 EquipmentPanel ──→ EquipmentManager + CrossHolderSystem
 

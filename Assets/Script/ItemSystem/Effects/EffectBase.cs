@@ -31,6 +31,16 @@ namespace ItemSystem
             => (true, null);
 
         /// <summary>
+        /// 激活持续效果（WhileInHand 卡牌进入手牌时调用）
+        /// </summary>
+        public virtual void Activate(EffectContext context) { }
+
+        /// <summary>
+        /// 停用持续效果（WhileInHand 卡牌离开手牌时调用）
+        /// </summary>
+        public virtual void Deactivate(EffectContext context) { }
+
+        /// <summary>
         /// 获取效果描述（纯效果文本，不含触发时机前缀）
         /// </summary>
         public virtual string GetDescription() => DisplayName;

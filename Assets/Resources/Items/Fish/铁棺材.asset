@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: "\u94C1\u68FA\u6750 "
   icon: {fileID: 0}
-  description: 
+  description: "\u6355\u83B7\uFF1A\u589E\u52A02\u75AF\u72C2\u503C"
   value: 0
   weight: 1
   category: 0
@@ -31,5 +31,5 @@ MonoBehaviour:
     - rid: 9178111255957733380
       type: {class: Effect_ModifySanity, ns: ItemSystem, asm: Assembly-CSharp}
       data:
-        trigger: 2
+        trigger: 1
         amount: 2
